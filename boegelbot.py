@@ -22,6 +22,7 @@ def is_travis_fluke(job_log_txt):
         r"fatal: unable to access .*: Failed to connect to github.com port [0-9]+: Connection timed out",
         r"Could not connect to ppa.launchpad.net.*, connection timed out",
         r"Failed to fetch .* Unable to connect to .*",
+        r"Failed to fetch .* Service Unavailable",
         r"ERROR 504: Gateway Time-out",
         r"Could not connect to .*, connection timed out",
         r"No output has been received in the last [0-9]*m[0-9]*s, this potentially indicates a stalled build",
