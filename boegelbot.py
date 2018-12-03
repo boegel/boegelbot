@@ -8,7 +8,10 @@ import os
 import re
 import travispy
 
-from easybuild.tools.github import fetch_github_token 
+from easybuild.tools.config import init_build_options
+from easybuild.tools.github import fetch_github_token
+
+from vsc.utils.generaloption import simple_option
 
 
 TRAVIS_URL = 'https://travis-ci.org'
@@ -44,6 +47,8 @@ def is_travis_fluke(job_log_txt):
 def fetch_travis_failed_builds(github_account, repository, owner, github_token):
     """Scan Travis test runs for failures, and return notification to be sent to PR if one is found"""
     travis = travispy.TravisPy.github_auth(github_token)
+
+    print "Checking failed Travis builds for %s/%s (using '%s' GitHub account)" % (github_account, repository, owner)
 
     repo_slug = '%s/%s' % (github_account, repository)
     last_builds = travis.builds(slug=repo_slug, event_type='pull_request')
@@ -137,6 +142,25 @@ def fetch_travis_failed_builds(github_account, repository, owner, github_token):
     return res
 
 
-github_user = 'boegel'
-github_token = fetch_github_token(github_user)
-fetch_travis_failed_builds('easybuilders', 'easybuild-easyconfigs', github_user, github_token)
+def main():
+
+    opts = {
+        'github-account': ("GitHub account where repository is located", None, 'store', 'easybuilders', 'a'),
+        'owner': ("Owner of the bot account that is used", None, 'store', 'boegel'),
+        'repository': ("Repository to use", None, 'store', 'easybuild-easyconfigs', 'r'),
+    }
+
+    go = simple_option(go_dict=opts)
+    init_build_options()
+
+    github_account = go.options.github_account
+    repository = go.options.repository
+    owner = go.options.owner
+
+    github_token = fetch_github_token(owner)
+
+    fetch_travis_failed_builds(github_account, repository, owner, github_token)
+
+
+if __name__ == '__main__':
+    main()
