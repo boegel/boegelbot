@@ -29,6 +29,7 @@ def is_travis_fluke(job_log_txt):
         r"curl.*SSL read: error",
         r"A TLS packet with unexpected length was received",
         r"ReadTimeoutError:.*Read timed out",
+        r"ERROR 500: Internal Server Error",
     ]
     fluke = False
     for pattern in fluke_patterns:
