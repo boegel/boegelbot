@@ -146,6 +146,7 @@ def main():
 
     opts = {
         'github-account': ("GitHub account where repository is located", None, 'store', 'easybuilders', 'a'),
+        'github-user': ("GitHub user to use (for authenticated access)", None, 'store', 'boegel', 'u'),
         'owner': ("Owner of the bot account that is used", None, 'store', 'boegel'),
         'repository': ("Repository to use", None, 'store', 'easybuild-easyconfigs', 'r'),
     }
@@ -155,9 +156,10 @@ def main():
 
     github_account = go.options.github_account
     repository = go.options.repository
+    github_user = go.options.github_user
     owner = go.options.owner
 
-    github_token = fetch_github_token(owner)
+    github_token = fetch_github_token(github_user)
 
     fetch_travis_failed_builds(github_account, repository, owner, github_token)
 
