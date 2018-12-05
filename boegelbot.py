@@ -80,6 +80,7 @@ def fetch_travis_failed_builds(github_account, repository, owner, github_token):
             check_msg = pr_comment.strip()
 
             jobs = [(job_id, job) for (job_id, job) in jobs if job.unsuccessful]
+            print "Found %d unsuccessful jobs" % len(jobs)
             if jobs:
 
                 # detect fluke failures in jobs, and restart them
@@ -104,6 +105,7 @@ def fetch_travis_failed_builds(github_account, repository, owner, github_token):
                     else:
                         print "Can't restart Travis jobs that failed due to flukes, no GitHub token found"
 
+            print "Retained %d unsuccessful jobs after filtering out flukes" % len(jobs)
             if jobs:
                 job_url = os.path.join(TRAVIS_URL, repo_slug, 'jobs', jobs[0][0])
                 pr_comment += "\nOnly showing partial log for 1st failed test suite run %s;\n" % jobs[0][1].number
