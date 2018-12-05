@@ -6,16 +6,32 @@ author: Kenneth Hoste (kenneth.hoste@ugent.be)
 """
 import os
 import re
+import socket
+import sys
 import travispy
 
+from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.config import init_build_options
-from easybuild.tools.github import fetch_github_token
+from easybuild.tools.github import GITHUB_API_URL, fetch_github_token, post_comment_in_issue
 
 from vsc.utils.generaloption import simple_option
+from vsc.utils.rest import RestClient
 
 
+DRY_RUN = False
 TRAVIS_URL = 'https://travis-ci.org'
 VERSION = '20180813.01'
+
+
+def error(msg):
+    """Print error message and exit."""
+    sys.stderr.write("ERROR: %s\n" % msg)
+    sys.exit(1)
+
+
+def info(msg):
+    """Print info message."""
+    print "%s... %s" % (msg, ('', '[DRY RUN]')[DRY_RUN])
 
 
 def is_travis_fluke(job_log_txt):
@@ -144,6 +160,79 @@ def fetch_travis_failed_builds(github_account, repository, owner, github_token):
     return res
 
 
+def fetch_pr_data(github, github_account, repository, pr):
+    """Fetch data for a single PR."""
+    pr_data = None
+    try:
+        gh_repo = github.repos[github_account][repository]
+        status, pr_data = gh_repo.pulls[pr].get()
+        sys.stdout.write("[data]")
+
+        # enhance PR data with test result for last commit
+        pr_data['unit_test_result'] = 'UNKNOWN'
+        if 'head' in pr_data:
+            sha = pr_data['head']['sha']
+            gh_repo = github.repos[github_account][repository]
+            status, status_data = gh_repo.commits[sha].status.get()
+            info("status: %d, commit status data: %s" % (status, status_data))
+            if status_data:
+                pr_data['combined_status'] = status_data['state']
+            sys.stdout.write("[status]")
+
+        # also pull in issue comments (note: these do *not* include review comments or commit comments)
+        gh_repo = github.repos[github_account][repository]
+        status, comments_data = gh_repo.issues[pr].comments.get()
+        pr_data['issue_comments'] = {
+            'users': [c['user']['login'] for c in comments_data],
+            'bodies': [c['body'] for c in comments_data],
+        }
+        sys.stdout.write("[comments], ")
+
+    except socket.gaierror, err:
+        raise EasyBuildError("Failed to download PR #%s: %s", pr, err)
+
+    return pr_data
+
+
+def comment(github, github_user, repository, pr_data, msg, check_msg=None, verbose=True):
+    """Post a comment in the pull request."""
+    # decode message first, if needed
+    known_msgs = {
+        'jok': "Jenkins: ok to test",
+        'jt': "Jenkins: test this please",
+    }
+    if msg.startswith(':'):
+        if msg[1:] in known_msgs:
+            msg = known_msgs[msg[1:]]
+        elif msg.startswith(':r'):
+            github_login = msg[2:]
+            try:
+                github.users[github_login].get()
+                msg = "@%s: please review?" % github_login
+            except Exception:
+                error("No such user on GitHub: %s" % github_login)
+        else:
+            error("Unknown coded comment message: %s" % msg)
+
+    # only actually post comment if it wasn't posted before
+    if check_msg:
+        msg_regex = re.compile(check_msg, re.M)
+        for comment in pr_data['issue_comments']['bodies']:
+            if msg_regex.search(comment):
+                print "Message already found (using pattern '%s'), not posting comment again!" % check_msg
+                return
+        print "Message not found yet (using pattern '%s'), stand back for posting!" % check_msg
+
+    target = '%s/%s' % (pr_data['base']['repo']['owner']['login'], pr_data['base']['repo']['name'])
+    if verbose:
+        info("Posting comment as user '%s' in %s PR #%s: \"%s\"" % (github_user, target, pr_data['number'], msg))
+    else:
+        info("Posting comment as user '%s' in %s PR #%s" % (github_user, target, pr_data['number']))
+    if not DRY_RUN:
+        post_comment_in_issue(pr_data['number'], msg, repo=repository, github_user=github_user)
+    print "Done!"
+
+
 def main():
 
     opts = {
@@ -163,7 +252,13 @@ def main():
 
     github_token = fetch_github_token(github_user)
 
-    fetch_travis_failed_builds(github_account, repository, owner, github_token)
+    # prepare using GitHub API
+    github = RestClient(GITHUB_API_URL, username=github_user, token=github_token, user_agent='eb-pr-check')
+
+    res = fetch_travis_failed_builds(github_account, repository, owner, github_token)
+    for pr, pr_comment, check_msg in res:
+        pr_data = fetch_pr_data(github, github_account, repository, pr)
+        comment(github, github_user, repository, pr_data, pr_comment, check_msg=check_msg, verbose=DRY_RUN)
 
 
 if __name__ == '__main__':
