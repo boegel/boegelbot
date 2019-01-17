@@ -174,7 +174,6 @@ def fetch_pr_data(github, github_account, repository, pr):
             sha = pr_data['head']['sha']
             gh_repo = github.repos[github_account][repository]
             status, status_data = gh_repo.commits[sha].status.get()
-            info("status: %d, commit status data: %s" % (status, status_data))
             if status_data:
                 pr_data['combined_status'] = status_data['state']
             sys.stdout.write("[status]")
@@ -258,7 +257,10 @@ def main():
     res = fetch_travis_failed_builds(github_account, repository, owner, github_token)
     for pr, pr_comment, check_msg in res:
         pr_data = fetch_pr_data(github, github_account, repository, pr)
-        comment(github, github_user, repository, pr_data, pr_comment, check_msg=check_msg, verbose=DRY_RUN)
+        if pr_data['state'] == 'open':
+            comment(github, github_user, repository, pr_data, pr_comment, check_msg=check_msg, verbose=DRY_RUN)
+        else:
+            print "Not posting comment in already closed %s PR #%s" % (repository, pr)
 
 
 if __name__ == '__main__':
