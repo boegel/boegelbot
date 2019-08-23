@@ -50,6 +50,7 @@ def is_travis_fluke(job_log_txt):
         r"ReadTimeoutError:.*Read timed out",
         r"ERROR 500: Internal Server Error",
         r"Some index files failed to download",
+        r"Error 502: Bad Gateway",
     ]
     fluke = False
     for pattern in fluke_patterns:
