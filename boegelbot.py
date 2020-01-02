@@ -12,7 +12,7 @@ import travispy
 
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.config import init_build_options
-from easybuild.tools.github import GITHUB_API_URL, fetch_github_token, post_comment_in_issue
+from easybuild.tools.github import GITHUB_API_URL, GITHUB_MAX_PER_PAGE, fetch_github_token, post_comment_in_issue
 
 from vsc.utils.generaloption import simple_option
 from vsc.utils.rest import RestClient
@@ -182,7 +182,7 @@ def fetch_pr_data(github, github_account, repository, pr):
 
         # also pull in issue comments (note: these do *not* include review comments or commit comments)
         gh_repo = github.repos[github_account][repository]
-        status, comments_data = gh_repo.issues[pr].comments.get()
+        status, comments_data = gh_repo.issues[pr].comments.get(per_page=GITHUB_MAX_PER_PAGE)
         pr_data['issue_comments'] = {
             'users': [c['user']['login'] for c in comments_data],
             'bodies': [c['body'] for c in comments_data],
