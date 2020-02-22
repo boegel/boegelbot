@@ -4,23 +4,30 @@ A bot that helps out with incoming contributions to the EasyBuild project
 
 author: Kenneth Hoste (kenneth.hoste@ugent.be)
 """
+import datetime
 import os
 import re
 import socket
 import sys
 import travispy
+from pprint import pformat, pprint
 
-from easybuild.tools.build_log import EasyBuildError
+from easybuild.tools.build_log import EasyBuildError, print_warning
 from easybuild.tools.config import init_build_options
-from easybuild.tools.github import GITHUB_API_URL, fetch_github_token, post_comment_in_issue
+from easybuild.tools.github import GITHUB_API_URL, GITHUB_MAX_PER_PAGE, fetch_github_token, post_comment_in_issue
+from easybuild.tools.run import run_cmd
+from easybuild.tools.systemtools import get_system_info
 
-from vsc.utils.generaloption import simple_option
-from vsc.utils.rest import RestClient
+from easybuild.base.generaloption import simple_option
+from easybuild.base.rest import RestClient
 
 
 DRY_RUN = False
 TRAVIS_URL = 'https://travis-ci.org'
 VERSION = '20180813.01'
+
+MODE_CHECK_TRAVIS = 'check_travis'
+MODE_TEST_PR = 'test_pr'
 
 
 def error(msg):
@@ -162,13 +169,14 @@ def fetch_travis_failed_builds(github_account, repository, owner, github_token):
     return res
 
 
-def fetch_pr_data(github, github_account, repository, pr):
+def fetch_pr_data(github, github_account, repository, pr, verbose=True):
     """Fetch data for a single PR."""
     pr_data = None
     try:
         gh_repo = github.repos[github_account][repository]
         status, pr_data = gh_repo.pulls[pr].get()
-        sys.stdout.write("[data]")
+        if verbose:
+            sys.stdout.write("[data]")
 
         # enhance PR data with test result for last commit
         pr_data['unit_test_result'] = 'UNKNOWN'
@@ -178,7 +186,8 @@ def fetch_pr_data(github, github_account, repository, pr):
             status, status_data = gh_repo.commits[sha].status.get()
             if status_data:
                 pr_data['combined_status'] = status_data['state']
-            sys.stdout.write("[status]")
+            if verbose:
+                sys.stdout.write("[status]")
 
         # also pull in issue comments (note: these do *not* include review comments or commit comments)
         gh_repo = github.repos[github_account][repository]
@@ -187,7 +196,8 @@ def fetch_pr_data(github, github_account, repository, pr):
             'users': [c['user']['login'] for c in comments_data],
             'bodies': [c['body'] for c in comments_data],
         }
-        sys.stdout.write("[comments], ")
+        if verbose:
+            sys.stdout.write("[comments], ")
 
     except socket.gaierror, err:
         raise EasyBuildError("Failed to download PR #%s: %s", pr, err)
@@ -217,7 +227,7 @@ def comment(github, github_user, repository, pr_data, msg, check_msg=None, verbo
 
     # only actually post comment if it wasn't posted before
     if check_msg:
-        msg_regex = re.compile(check_msg, re.M)
+        msg_regex = re.compile(re.escape(check_msg), re.M)
         for comment in pr_data['issue_comments']['bodies']:
             if msg_regex.search(comment):
                 print "Message already found (using pattern '%s'), not posting comment again!" % check_msg
@@ -234,11 +244,90 @@ def comment(github, github_user, repository, pr_data, msg, check_msg=None, verbo
     print "Done!"
 
 
+def check_notifications(github, github_user, github_account, repository):
+    """
+    Check notification for specified repository (and act on them).
+    """
+    print("Checking notifcations... (current time: %s)" % datetime.datetime.now())
+
+    status, res = github.notifications.get(per_page=GITHUB_MAX_PER_PAGE)
+
+    print("Found %d unread notifications" % len(res))
+
+    # only retain stuff we care about
+    notifications = []
+    for elem in res:
+        notifications.append({
+            'full_repo_name': elem['repository']['full_name'],
+            'reason': elem['reason'],
+            'subject': elem['subject'],
+            'unread': elem['unread'],
+        })
+
+    # filter notifications on repository:
+    # - only notifications for repo we care about
+    # - only notifications for mentions
+    full_repo_name = github_account + '/' + repository
+    retained = []
+    for notification in notifications:
+        if notification['full_repo_name'] == full_repo_name and notification['subject']['type'] == 'PullRequest':
+            if notification['reason'] == 'mention':
+                retained.append(notification)
+    print("Retained %d relevant notifications after filtering" % len(retained))
+
+    return retained
+
+
+def process_notifications(notifications, github, github_user, github_account, repository):
+    """Process provided notifications."""
+
+    res = []
+
+    cnt = len(notifications)
+    for idx, notification in enumerate(notifications):
+        pr_title = notification['subject']['title']
+        pr_id = notification['subject']['url'].split('/')[-1]
+        print("[%d/%d] Processing notification for %s PR #%s \"%s\"..." % (idx+1, cnt, repository, pr_id, pr_title))
+
+        # check comments (latest first)
+        pr_data = fetch_pr_data(github, github_account, repository, pr_id, verbose=False)
+
+        comments = zip(pr_data['issue_comments']['users'], pr_data['issue_comments']['bodies'])
+
+        mention_regex = re.compile(r'\s*@%s:?\s*' % github_user, re.M)
+
+        mention_found = False
+        for comment_by, comment_txt in comments[::-1]:
+            if mention_regex.search(comment_txt):
+                msg = mention_regex.sub('', comment_txt)
+                if "please test" in msg:
+                    system_info = get_system_info()
+                    hostname = system_info.get('hostname', '(hostname not known)')
+                    reply_msg = "Test report from %s coming up soon (not really, just testing)..." % hostname
+                else:
+                    reply_msg = "Got message \"%s\", but I don't know what to do with it, sorry..." % msg
+
+                comment(github, github_user, repository, pr_data, reply_msg, check_msg=reply_msg, verbose=DRY_RUN)
+
+                mention_found = True
+                break
+            else:
+                # skip irrelevant comments (no mention found)
+                continue
+
+        if not mention_found:
+            print_warning("Relevant comment for notification #%d for PR %s not found?!" % (idx, pr_id))
+            sys.stderr.write("Notification data:\n" + pformat(notification))
+
+    return res
+
+
 def main():
 
     opts = {
         'github-account': ("GitHub account where repository is located", None, 'store', 'easybuilders', 'a'),
         'github-user': ("GitHub user to use (for authenticated access)", None, 'store', 'boegel', 'u'),
+        'mode': ("Mode to run in", 'choice', 'store', MODE_CHECK_TRAVIS, [MODE_CHECK_TRAVIS, MODE_TEST_PR]),
         'owner': ("Owner of the bot account that is used", None, 'store', 'boegel'),
         'repository': ("Repository to use", None, 'store', 'easybuild-easyconfigs', 'r'),
     }
@@ -247,23 +336,31 @@ def main():
     init_build_options()
 
     github_account = go.options.github_account
-    repository = go.options.repository
     github_user = go.options.github_user
+    mode = go.options.mode
     owner = go.options.owner
+    owner = go.options.owner
+    repository = go.options.repository
 
     github_token = fetch_github_token(github_user)
 
     # prepare using GitHub API
     github = RestClient(GITHUB_API_URL, username=github_user, token=github_token, user_agent='eb-pr-check')
 
-    res = fetch_travis_failed_builds(github_account, repository, owner, github_token)
-    for pr, pr_comment, check_msg in res:
-        pr_data = fetch_pr_data(github, github_account, repository, pr)
-        if pr_data['state'] == 'open':
-            comment(github, github_user, repository, pr_data, pr_comment, check_msg=check_msg, verbose=DRY_RUN)
-        else:
-            print "Not posting comment in already closed %s PR #%s" % (repository, pr)
+    if mode == MODE_CHECK_TRAVIS:
+        res = fetch_travis_failed_builds(github_account, repository, owner, github_token)
+        for pr, pr_comment, check_msg in res:
+            pr_data = fetch_pr_data(github, github_account, repository, pr)
+            if pr_data['state'] == 'open':
+                comment(github, github_user, repository, pr_data, pr_comment, check_msg=check_msg, verbose=DRY_RUN)
+            else:
+                print "Not posting comment in already closed %s PR #%s" % (repository, pr)
 
+    elif mode == MODE_TEST_PR:
+        notifications = check_notifications(github, github_user, github_account, repository)
+        process_notifications(notifications, github, github_user, github_account, repository)
+    else:
+        error("Unknown mode: %s" % mode)
 
 if __name__ == '__main__':
     main()
