@@ -191,7 +191,7 @@ def fetch_pr_data(github, github_account, repository, pr, verbose=True):
 
         # also pull in issue comments (note: these do *not* include review comments or commit comments)
         gh_repo = github.repos[github_account][repository]
-        status, comments_data = gh_repo.issues[pr].comments.get()
+        status, comments_data = gh_repo.issues[pr].comments.get(per_page=GITHUB_MAX_PER_PAGE)
         pr_data['issue_comments'] = {
             'users': [c['user']['login'] for c in comments_data],
             'bodies': [c['body'] for c in comments_data],
