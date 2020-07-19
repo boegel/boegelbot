@@ -9,8 +9,12 @@ import os
 import re
 import socket
 import sys
-import travispy
 from pprint import pformat, pprint
+
+try:
+    import travispy
+except ImportError:
+    pass
 
 from easybuild.tools.build_log import EasyBuildError, print_warning
 from easybuild.tools.config import init_build_options
@@ -24,8 +28,9 @@ from easybuild.base.rest import RestClient
 
 DRY_RUN = False
 TRAVIS_URL = 'https://travis-ci.org'
-VERSION = '20180813.01'
+VERSION = '20200716.01'
 
+MODE_CHECK_GITHUB_ACTIONS = 'check_github_actions'
 MODE_CHECK_TRAVIS = 'check_travis'
 MODE_TEST_PR = 'test_pr'
 
@@ -36,14 +41,20 @@ def error(msg):
     sys.exit(1)
 
 
+def warning(msg):
+    """Print warning message."""
+    sys.stderr.write("WARNING: %s\n" % msg)
+
+
 def info(msg):
     """Print info message."""
-    print "%s... %s" % (msg, ('', '[DRY RUN]')[DRY_RUN])
+    print("%s... %s" % (msg, ('', '[DRY RUN]')[DRY_RUN]))
 
 
-def is_travis_fluke(job_log_txt):
+def is_fluke(job_log_txt):
     """Detect fluke failures in Travis job log."""
     fluke_patterns = [
+        # Travis fluke failures
         r"Failed to connect to .* port [0-9]+: Connection timed out",
         r"fatal: unable to access .*: Failed to connect to github.com port [0-9]+: Connection timed out",
         r"Could not connect to ppa.launchpad.net.*, connection timed out",
@@ -58,11 +69,14 @@ def is_travis_fluke(job_log_txt):
         r"ERROR 500: Internal Server Error",
         r"Some index files failed to download",
         r"Error 502: Bad Gateway",
+        # GitHub Actions fluke failures
+        r"500 \(Internal Server Error\)",
     ]
     fluke = False
     for pattern in fluke_patterns:
         regex = re.compile(pattern, re.M)
         if regex.search(job_log_txt):
+            print("Fluke found: '%s'" % regex.pattern)
             fluke = True
             break
 
@@ -71,9 +85,13 @@ def is_travis_fluke(job_log_txt):
 
 def fetch_travis_failed_builds(github_account, repository, owner, github_token):
     """Scan Travis test runs for failures, and return notification to be sent to PR if one is found"""
+
+    if 'travispy' not in globals():
+        error("travisy not available?!")
+
     travis = travispy.TravisPy.github_auth(github_token)
 
-    print "Checking failed Travis builds for %s/%s (using '%s' GitHub account)" % (github_account, repository, owner)
+    print("Checking failed Travis builds for %s/%s (using '%s' GitHub account)" % (github_account, repository, owner))
 
     repo_slug = '%s/%s' % (github_account, repository)
     last_builds = travis.builds(slug=repo_slug, event_type='pull_request')
@@ -85,17 +103,17 @@ def fetch_travis_failed_builds(github_account, repository, owner, github_token):
         bid, pr = build.number, build.pull_request_number
 
         if pr in done_prs:
-            print "(skipping test suite run for already processed PR #%s)" % pr
+            print("(skipping test suite run for already processed PR #%s)" % pr)
             continue
 
         done_prs.append(pr)
 
         if build.successful:
-            print "(skipping successful test suite run %s for PR %s)" % (bid, pr)
+            print("(skipping successful test suite run %s for PR %s)" % (bid, pr))
 
         else:
             build_url = os.path.join(TRAVIS_URL, repo_slug, 'builds', str(build.id))
-            print "[id: %s] PR #%s - %s - %s" % (bid, pr, build.state, build_url)
+            print("[id: %s] PR #%s - %s - %s" % (bid, pr, build.state, build_url))
 
             jobs = [(str(job_id), travis.jobs(ids=[job_id])[0]) for job_id in sorted(build.job_ids)]
             jobs_ok = [job.successful for (_, job) in jobs]
@@ -105,13 +123,13 @@ def fetch_travis_failed_builds(github_account, repository, owner, github_token):
             check_msg = pr_comment.strip()
 
             jobs = [(job_id, job) for (job_id, job) in jobs if job.unsuccessful]
-            print "Found %d unsuccessful jobs" % len(jobs)
+            print("Found %d unsuccessful jobs" % len(jobs))
             if jobs:
 
                 # detect fluke failures in jobs, and restart them
                 flukes = []
                 for (job_id, job) in jobs:
-                    if is_travis_fluke(job.log.body):
+                    if is_fluke(job.log.body):
                         flukes.append(job_id)
 
                 if flukes:
@@ -119,18 +137,18 @@ def fetch_travis_failed_builds(github_account, repository, owner, github_token):
                     if boegel_gh_token:
                         travis_boegel = travispy.TravisPy.github_auth(boegel_gh_token)
                         for (job_id, job) in zip(flukes, travis_boegel.jobs(ids=flukes)):
-                            print "[id %s] PR #%s - fluke detected in job ID %s, restarting it!" % (bid, pr, job_id)
+                            print("[id %s] PR #%s - fluke detected in job ID %s, restarting it!" % (bid, pr, job_id))
                             if job.restart():
-                                print "Job ID %s restarted" % job_id
+                                print("Job ID %s restarted" % job_id)
                             else:
-                                print "Failed to restart job ID %s!" % job_id
+                                print("Failed to restart job ID %s!" % job_id)
 
                         # filter out fluke jobs, we shouldn't report these
                         jobs = [(job_id, job) for (job_id, job) in jobs if job_id not in flukes]
                     else:
-                        print "Can't restart Travis jobs that failed due to flukes, no GitHub token found"
+                        print("Can't restart Travis jobs that failed due to flukes, no GitHub token found")
 
-            print "Retained %d unsuccessful jobs after filtering out flukes" % len(jobs)
+            print("Retained %d unsuccessful jobs after filtering out flukes" % len(jobs))
             if jobs:
                 job_url = os.path.join(TRAVIS_URL, repo_slug, 'jobs', jobs[0][0])
                 pr_comment += "\nOnly showing partial log for 1st failed test suite run %s;\n" % jobs[0][1].number
@@ -162,9 +180,132 @@ def fetch_travis_failed_builds(github_account, repository, owner, github_token):
                 res.append((pr, pr_comment, check_msg))
 
             else:
-                print "(no more failed jobs after filtering out flukes for id %s PR #%s)" % (bid, pr)
+                print("(no more failed jobs after filtering out flukes for id %s PR #%s)" % (bid, pr))
 
-    print "Processed %d builds, found %d PRs with failed builds to report back on" % (len(last_builds), len(res))
+    print("Processed %d builds, found %d PRs with failed builds to report back on" % (len(last_builds), len(res)))
+
+    return res
+
+
+def fetch_github_failed_workflows(github, github_account, repository, owner):
+    """Scan GitHub Actions for failed workflow runs."""
+
+    res = []
+
+    # only consider failed workflows triggered by pull requests
+    params = {
+        'event': 'pull_request',
+        'status': 'failure',
+        'per_page': GITHUB_MAX_PER_PAGE,
+    }
+
+    try:
+        status, run_data = github.repos[github_account][repository].actions.runs.get(**params)
+    except socket.gaierror, err:
+        error("Failed to download GitHub Actions workflow runs data: %s" % err)
+
+    if status == 200:
+        print("Found %s fail workflow runs for %s/%s" % (len(run_data), github_account, repository))
+    else:
+        error("Status for downloading GitHub Actions workflow runs data should be 200, got %s" % status)
+
+    run_data = run_data['workflow_runs']
+    for idx, entry in enumerate(run_data):
+
+        head_user = entry['head_repository']['owner']['login']
+        head = '%s:%s' % (head_user, entry['head_branch'])
+        print(head)
+
+        # determine corresponding PR (if any)
+        status, pr_data = github.repos[github_account][repository].pulls.get(head=head)
+        if status != 200:
+            error("Status for downloading data for PR with head %s should be 200, got %s" % (head, status))
+
+        if len(pr_data) == 1:
+            pr_data = pr_data[0]
+            print("Failed workflow run %s found (PR: %s)" % (entry['html_url'], pr_data['html_url']))
+
+            if pr_data['state'] == 'open':
+
+                # download log for first failing job in workflow
+                run_id = entry['id']
+                status, jobs_data = github.repos[github_account][repository].actions.runs[run_id].jobs.get()
+                if status != 200:
+                    error("Failed to download list of jobs for workflow run %s" % entry['html_url'])
+
+                job_id = None
+                for job in jobs_data['jobs']:
+                    if job['conclusion'] == 'failure':
+                        job_id = job['id']
+                        print("Found failing job for workflow %s: %s" % (entry['html_url'], job_id))
+                        break
+
+                status, log_txt = github.repos[github_account][repository].actions.jobs[job_id].logs.get()
+                if status != 200:
+                    error("Failed to download log for job %s" % job_id)
+
+                # strip of timestamp prefixes
+                # example timestamp: 2020-07-13T09:54:36.5004935Z
+                timestamp_regex = re.compile(r'^[0-9-]{10}T[0-9:]{8}\.[0-9]+Z ')
+                log_lines = [timestamp_regex.sub('', l) for l in log_txt.splitlines()]
+
+                # determine line that marks end of output for failing test suite:
+                # "ERROR: Not all tests were successful"
+                error_line_idx = None
+                for idx, line in enumerate(log_lines):
+                    if "ERROR: Not all tests were successful" in line:
+                        error_line_idx = idx
+                        break
+
+                if error_line_idx is None:
+                    warning("Log line that marks end of test suite output not found!\n%s" % '\n'.join(log_lines))
+                    if is_fluke(log_txt):
+                        print("Fluke found, restarting this workflow...")
+                        status, jobs_data = github.repos[github_account][repository].actions.runs[run_id].rerun.post()
+                        if status == 201:
+                            print("Workflow %s restarted" % entry['html_url'])
+                        else:
+                            print("Failed to restart workflow %s: status %s" % (entry['html_url'], status))
+
+                    continue
+
+                # find line that marks start of test output: only dots and 'E'/'F' characters
+                start_test_regex = re.compile(r'^[\.EF]+$')
+                start_line_idx = error_line_idx
+                start_log_line = log_lines[start_line_idx]
+                while(start_line_idx >= 0 and not (start_log_line and start_test_regex.match(start_log_line))):
+                    start_line_idx -= 1
+                    start_log_line = log_lines[start_line_idx]
+
+                log_lines = log_lines[start_line_idx+1:error_line_idx+1]
+
+                pr_id = pr_data['number']
+                pr_comment = "@%s: Tests failed in GitHub Actions" % pr_data['user']['login']
+                pr_comment += ", see %s" % entry['html_url']
+                check_msg = pr_comment
+
+                if len(log_lines) > 100:
+                    log_lines = log_lines[-100:]
+                    pr_comment += "\nLast 100 lines of output from first failing test suite run:\n\n```"
+                else:
+                    pr_comment += "\nOutput from first failing test suite run:\n\n```"
+
+                for line in log_lines:
+                    pr_comment += line + '\n'
+
+                pr_comment += "```\n"
+
+                pr_comment += "\n*bleep, bloop, I'm just a bot (boegelbot v%s)*\n" % VERSION
+                pr_comment += "Please talk to my owner @%s if you notice you me acting stupid),\n" % owner
+                pr_comment += "or submit a pull request to https://github.com/boegel/boegelbot fix the problem."
+
+                res.append((pr_id, pr_comment, check_msg))
+            else:
+                print("Ignoring failed workflow run for closed PR %s" % pr_data['html_url'])
+        else:
+            warning("Expected exactly one PR with head %s, found %s: %s" % (head, len(pr_data), pr_data))
+
+    print("Processed %d failed workflow runs, found %d PRs to report back on" % (len(run_data), len(res)))
 
     return res
 
@@ -230,9 +371,11 @@ def comment(github, github_user, repository, pr_data, msg, check_msg=None, verbo
         msg_regex = re.compile(re.escape(check_msg), re.M)
         for comment in pr_data['issue_comments']['bodies']:
             if msg_regex.search(comment):
-                print "Message already found (using pattern '%s'), not posting comment again!" % check_msg
+                msg = "Message already found (using pattern '%s'), " % check_msg
+                msg += "not posting comment again to PR %s!" % pr_data['number']
+                print(msg)
                 return
-        print "Message not found yet (using pattern '%s'), stand back for posting!" % check_msg
+        print("Message not found yet (using pattern '%s'), stand back for posting!" % check_msg)
 
     target = '%s/%s' % (pr_data['base']['repo']['owner']['login'], pr_data['base']['repo']['name'])
     if verbose:
@@ -241,7 +384,7 @@ def comment(github, github_user, repository, pr_data, msg, check_msg=None, verbo
         info("Posting comment as user '%s' in %s PR #%s" % (github_user, target, pr_data['number']))
     if not DRY_RUN:
         post_comment_in_issue(pr_data['number'], msg, repo=repository, github_user=github_user)
-    print "Done!"
+    print("Done!")
 
 
 def check_notifications(github, github_user, github_account, repository):
@@ -327,7 +470,8 @@ def main():
     opts = {
         'github-account': ("GitHub account where repository is located", None, 'store', 'easybuilders', 'a'),
         'github-user': ("GitHub user to use (for authenticated access)", None, 'store', 'boegel', 'u'),
-        'mode': ("Mode to run in", 'choice', 'store', MODE_CHECK_TRAVIS, [MODE_CHECK_TRAVIS, MODE_TEST_PR]),
+        'mode': ("Mode to run in", 'choice', 'store', MODE_CHECK_TRAVIS,
+                 [MODE_CHECK_GITHUB_ACTIONS, MODE_CHECK_TRAVIS, MODE_TEST_PR]),
         'owner': ("Owner of the bot account that is used", None, 'store', 'boegel'),
         'repository': ("Repository to use", None, 'store', 'easybuild-easyconfigs', 'r'),
     }
@@ -347,20 +491,28 @@ def main():
     # prepare using GitHub API
     github = RestClient(GITHUB_API_URL, username=github_user, token=github_token, user_agent='eb-pr-check')
 
-    if mode == MODE_CHECK_TRAVIS:
-        res = fetch_travis_failed_builds(github_account, repository, owner, github_token)
+    if mode in [MODE_CHECK_GITHUB_ACTIONS, MODE_CHECK_TRAVIS]:
+
+        if mode == MODE_CHECK_TRAVIS:
+            res = fetch_travis_failed_builds(github_account, repository, owner, github_token)
+        elif mode == MODE_CHECK_GITHUB_ACTIONS:
+            res = fetch_github_failed_workflows(github, github_account, repository, owner)
+        else:
+            error("Unknown mode: %s" % mode)
+
         for pr, pr_comment, check_msg in res:
             pr_data = fetch_pr_data(github, github_account, repository, pr)
             if pr_data['state'] == 'open':
                 comment(github, github_user, repository, pr_data, pr_comment, check_msg=check_msg, verbose=DRY_RUN)
             else:
-                print "Not posting comment in already closed %s PR #%s" % (repository, pr)
+                print("Not posting comment in already closed %s PR #%s" % (repository, pr))
 
     elif mode == MODE_TEST_PR:
         notifications = check_notifications(github, github_user, github_account, repository)
         process_notifications(notifications, github, github_user, github_account, repository)
     else:
         error("Unknown mode: %s" % mode)
+
 
 if __name__ == '__main__':
     main()
