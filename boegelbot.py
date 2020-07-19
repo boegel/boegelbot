@@ -201,7 +201,7 @@ def fetch_github_failed_workflows(github, github_account, repository, owner):
 
     try:
         status, run_data = github.repos[github_account][repository].actions.runs.get(**params)
-    except socket.gaierror, err:
+    except socket.gaierror as err:
         error("Failed to download GitHub Actions workflow runs data: %s" % err)
 
     if status == 200:
@@ -376,7 +376,7 @@ def fetch_pr_data(github, github_account, repository, pr, verbose=True):
         if verbose:
             sys.stdout.write("[comments], ")
 
-    except socket.gaierror, err:
+    except socket.gaierror as err:
         raise EasyBuildError("Failed to download PR #%s: %s", pr, err)
 
     return pr_data
@@ -437,6 +437,7 @@ def check_notifications(github, github_user, github_account, repository):
     notifications = []
     for elem in res:
         notifications.append({
+            'id': elem['id'],
             'full_repo_name': elem['repository']['full_name'],
             'reason': elem['reason'],
             'subject': elem['subject'],
@@ -472,10 +473,22 @@ def process_notifications(notifications, github, github_user, github_account, re
         # check comments (latest first)
         pr_data = fetch_pr_data(github, github_account, repository, pr_id, verbose=False)
 
-        comments = zip(pr_data['issue_comments']['users'], pr_data['issue_comments']['bodies'])
+        comments = list(zip(pr_data['issue_comments']['users'], pr_data['issue_comments']['bodies']))
+
+        check_str = "notification %s processed" % notification['id']
+
+        processed = False
+        for comment_by, comment_txt in comments[::-1]:
+            if comment_by == github_user and check_str in comment_txt:
+                processed = True
+                break
+
+        if processed:
+            print("Notification %s already processed, so skipping it..." % notification['id'])
+            continue
 
         mention_regex = re.compile(r'\s*@%s:?\s*' % github_user, re.M)
-        host_regex = re.compile(r'@\s*%s[^a-zA-Z0-9]' % host, re.M)
+        host_regex = re.compile(r'@.*%s' % host, re.M)
 
         mention_found = False
         for comment_by, comment_txt in comments[::-1]:
@@ -495,7 +508,13 @@ def process_notifications(notifications, github, github_user, github_account, re
                     else:
                         reply_msg = "Got message \"%s\", but I don't know what to do with it, sorry..." % msg
 
-                    comment(github, github_user, repository, pr_data, reply_msg, check_msg=reply_msg, verbose=DRY_RUN)
+                    reply_msg += "\n\n<details>\n\n"
+                    reply_msg += "*Message to humans: this is just bookkeeping information for me,\n"
+                    reply_msg += "it is of no use to you (unless you think I have a bug, which I don't).*\n"
+                    reply_msg += "*- %s*\n" % check_str
+                    reply_msg += "\n</details>\n"
+
+                    comment(github, github_user, repository, pr_data, reply_msg, verbose=DRY_RUN)
                 else:
                     print("Pattern '%s' not found in comment for PR #%s, so ignoring it" % (host_regex.pattern, pr_id))
 
@@ -503,6 +522,7 @@ def process_notifications(notifications, github, github_user, github_account, re
                 break
             else:
                 # skip irrelevant comments (no mention found)
+                print("Pattern '%s' not found in comment for PR #%s, so ignoring it" % (mention_regex.pattern, pr_id))
                 continue
 
         if not mention_found:
