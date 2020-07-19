@@ -209,6 +209,8 @@ def fetch_github_failed_workflows(github, github_account, repository, owner):
     else:
         error("Status for downloading GitHub Actions workflow runs data should be 200, got %s" % status)
 
+    failing_prs = set()
+
     run_data = run_data['workflow_runs']
     for idx, entry in enumerate(run_data):
 
@@ -225,14 +227,22 @@ def fetch_github_failed_workflows(github, github_account, repository, owner):
             pr_data = pr_data[0]
             print("Failed workflow run %s found (PR: %s)" % (entry['html_url'], pr_data['html_url']))
 
+            pr_id = pr_data['number']
+
+            # skip PRs for which a failing workflow was already encountered
+            if pr_id in failing_prs:
+                print("PR #%s already encountered, so skipping workflow %s" % (pr_id, entry['html_url']))
+                continue
+
             if pr_data['state'] == 'open':
 
-                # download log for first failing job in workflow
+                # download list of jobs in workflow
                 run_id = entry['id']
                 status, jobs_data = github.repos[github_account][repository].actions.runs[run_id].jobs.get()
                 if status != 200:
                     error("Failed to download list of jobs for workflow run %s" % entry['html_url'])
 
+                # determine ID of first failing job
                 job_id = None
                 for job in jobs_data['jobs']:
                     if job['conclusion'] == 'failure':
@@ -240,11 +250,14 @@ def fetch_github_failed_workflows(github, github_account, repository, owner):
                         print("Found failing job for workflow %s: %s" % (entry['html_url'], job_id))
                         break
 
+                if job_id is None:
+                    error("ID of failing job not found for workflow %s" % entry['html_url'])
+
                 status, log_txt = github.repos[github_account][repository].actions.jobs[job_id].logs.get()
                 if status != 200:
                     error("Failed to download log for job %s" % job_id)
 
-                # strip of timestamp prefixes
+                # strip off timestamp prefixes
                 # example timestamp: 2020-07-13T09:54:36.5004935Z
                 timestamp_regex = re.compile(r'^[0-9-]{10}T[0-9:]{8}\.[0-9]+Z ')
                 log_lines = [timestamp_regex.sub('', l) for l in log_txt.splitlines()]
@@ -279,9 +292,11 @@ def fetch_github_failed_workflows(github, github_account, repository, owner):
 
                 log_lines = log_lines[start_line_idx+1:error_line_idx+1]
 
-                pr_id = pr_data['number']
+                # compose comment
                 pr_comment = "@%s: Tests failed in GitHub Actions" % pr_data['user']['login']
                 pr_comment += ", see %s" % entry['html_url']
+
+                # use first part of comment to check whether comment was already posted
                 check_msg = pr_comment
 
                 if len(log_lines) > 100:
@@ -300,6 +315,7 @@ def fetch_github_failed_workflows(github, github_account, repository, owner):
                 pr_comment += "or submit a pull request to https://github.com/boegel/boegelbot fix the problem."
 
                 res.append((pr_id, pr_comment, check_msg))
+                failing_prs.add(pr_id)
             else:
                 print("Ignoring failed workflow run for closed PR %s" % pr_data['html_url'])
         else:
