@@ -286,12 +286,19 @@ def fetch_github_failed_workflows(github, github_account, repository, owner):
                 if error_line_idx is None:
                     warning("Log line that marks end of test suite output not found!\n%s" % '\n'.join(log_lines))
                     if is_fluke(log_txt):
-                        print("Fluke found, restarting this workflow...")
-                        status, jobs_data = github.repos[github_account][repository].actions.runs[run_id].rerun.post()
-                        if status == 201:
-                            print("Workflow %s restarted" % entry['html_url'])
+                        owner_gh_token = fetch_github_token(owner)
+                        if owner_gh_token:
+                            github_owner = RestClient(GITHUB_API_URL, username=owner, token=owner_gh_token,
+                                                      user_agent='eb-pr-check')
+                            print("Fluke found, restarting this workflow using @%s's GitHub account..." % owner)
+                            repo_api = github_owner.repos[github_account][repository]
+                            status, jobs_data = repo_api.actions.runs[run_id].rerun.post()
+                            if status == 201:
+                                print("Workflow %s restarted" % entry['html_url'])
+                            else:
+                                print("Failed to restart workflow %s: status %s" % (entry['html_url'], status))
                         else:
-                            print("Failed to restart workflow %s: status %s" % (entry['html_url'], status))
+                            warning("Fluke found but can't restart workflow, no token found for @%s" % owner)
 
                     continue
 
