@@ -236,6 +236,19 @@ def fetch_github_failed_workflows(github, github_account, repository, owner):
 
             if pr_data['state'] == 'open':
 
+                # check status of most recent commit in this PR,
+                # ignore this PR if status is "success" or "pending"
+                pr_head = pr_data['head']['sha']
+                status, pr_head_data = github.repos[github_account][repository].commits[pr_head].status.get()
+                if status != 200:
+                    error("Failed to determine status of last commit in PR #%s" % pr_id)
+
+                pr_status = pr_head_data['state']
+                print("Status of last commit in PR #%s: %s" % (pr_id, pr_status))
+
+                if pr_status in ['pending', 'success']:
+                    print("Status of last commit in PR #%s is '%s', so ignoring it for now..." % (pr_id, pr_status))
+
                 # download list of jobs in workflow
                 run_id = entry['id']
                 status, jobs_data = github.repos[github_account][repository].actions.runs[run_id].jobs.get()
