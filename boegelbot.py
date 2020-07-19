@@ -443,9 +443,10 @@ def check_notifications(github, github_user, github_account, repository):
             'unread': elem['unread'],
         })
 
-    # filter notifications on repository:
+    # filter notifications:
     # - only notifications for repo we care about
     # - only notifications for mentions
+    # - only notifications for pull requests
     full_repo_name = github_account + '/' + repository
     retained = []
     for notification in notifications:
@@ -457,7 +458,7 @@ def check_notifications(github, github_user, github_account, repository):
     return retained
 
 
-def process_notifications(notifications, github, github_user, github_account, repository):
+def process_notifications(notifications, github, github_user, github_account, repository, host):
     """Process provided notifications."""
 
     res = []
@@ -474,19 +475,29 @@ def process_notifications(notifications, github, github_user, github_account, re
         comments = zip(pr_data['issue_comments']['users'], pr_data['issue_comments']['bodies'])
 
         mention_regex = re.compile(r'\s*@%s:?\s*' % github_user, re.M)
+        host_regex = re.compile(r'@\s*%s[^a-zA-Z0-9]' % host, re.M)
 
         mention_found = False
         for comment_by, comment_txt in comments[::-1]:
             if mention_regex.search(comment_txt):
-                msg = mention_regex.sub('', comment_txt)
-                if "please test" in msg:
-                    system_info = get_system_info()
-                    hostname = system_info.get('hostname', '(hostname not known)')
-                    reply_msg = "Test report from %s coming up soon (not really, just testing)..." % hostname
-                else:
-                    reply_msg = "Got message \"%s\", but I don't know what to do with it, sorry..." % msg
+                print("Found comment including '%s': %s" % (mention_regex.pattern, comment_txt))
 
-                comment(github, github_user, repository, pr_data, reply_msg, check_msg=reply_msg, verbose=DRY_RUN)
+                msg = mention_regex.sub('', comment_txt)
+
+                # require that @<host> is included in comment before taking any action
+                if host_regex.search(msg):
+                    print("Comment includes '%s', so processing it..." % host_regex.pattern)
+
+                    if "please test" in msg:
+                        system_info = get_system_info()
+                        hostname = system_info.get('hostname', '(hostname not known)')
+                        reply_msg = "Test report from %s coming up soon (not really, just testing)..." % hostname
+                    else:
+                        reply_msg = "Got message \"%s\", but I don't know what to do with it, sorry..." % msg
+
+                    comment(github, github_user, repository, pr_data, reply_msg, check_msg=reply_msg, verbose=DRY_RUN)
+                else:
+                    print("Pattern '%s' not found in comment for PR #%s, so ignoring it" % (host_regex.pattern, pr_id))
 
                 mention_found = True
                 break
@@ -510,6 +521,7 @@ def main():
                  [MODE_CHECK_GITHUB_ACTIONS, MODE_CHECK_TRAVIS, MODE_TEST_PR]),
         'owner': ("Owner of the bot account that is used", None, 'store', 'boegel'),
         'repository': ("Repository to use", None, 'store', 'easybuild-easyconfigs', 'r'),
+        'host': ("Label for current host (used to filter comments asking to test a PR)", None, 'store', ''),
     }
 
     go = simple_option(go_dict=opts)
@@ -521,6 +533,7 @@ def main():
     owner = go.options.owner
     owner = go.options.owner
     repository = go.options.repository
+    host = go.options.host
 
     github_token = fetch_github_token(github_user)
 
@@ -544,8 +557,10 @@ def main():
                 print("Not posting comment in already closed %s PR #%s" % (repository, pr))
 
     elif mode == MODE_TEST_PR:
+        if not host:
+            error("--host is required when using '--mode %s' !" % MODE_TEST_PR)
         notifications = check_notifications(github, github_user, github_account, repository)
-        process_notifications(notifications, github, github_user, github_account, repository)
+        process_notifications(notifications, github, github_user, github_account, repository, host)
     else:
         error("Unknown mode: %s" % mode)
 
