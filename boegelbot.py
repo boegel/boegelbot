@@ -370,6 +370,7 @@ def fetch_pr_data(github, github_account, repository, pr, verbose=True):
         gh_repo = github.repos[github_account][repository]
         status, comments_data = gh_repo.issues[pr].comments.get(per_page=GITHUB_MAX_PER_PAGE)
         pr_data['issue_comments'] = {
+            'ids': [c['id'] for c in comments_data],
             'users': [c['user']['login'] for c in comments_data],
             'bodies': [c['body'] for c in comments_data],
         }
@@ -437,10 +438,11 @@ def check_notifications(github, github_user, github_account, repository):
     notifications = []
     for elem in res:
         notifications.append({
-            'id': elem['id'],
             'full_repo_name': elem['repository']['full_name'],
             'reason': elem['reason'],
             'subject': elem['subject'],
+            'thread_id': elem['id'],
+            'timestamp': elem['updated_at'],
             'unread': elem['unread'],
         })
 
@@ -459,7 +461,7 @@ def check_notifications(github, github_user, github_account, repository):
     return retained
 
 
-def process_notifications(notifications, github, github_user, github_account, repository, host):
+def process_notifications(notifications, github, github_user, github_account, repository, host, pr_test_cmd):
     """Process provided notifications."""
 
     res = []
@@ -468,30 +470,41 @@ def process_notifications(notifications, github, github_user, github_account, re
     for idx, notification in enumerate(notifications):
         pr_title = notification['subject']['title']
         pr_id = notification['subject']['url'].split('/')[-1]
-        print("[%d/%d] Processing notification for %s PR #%s \"%s\"..." % (idx+1, cnt, repository, pr_id, pr_title))
+        msg = "[%d/%d] Processing notification for %s PR #%s \"%s\"... " % (idx+1, cnt, repository, pr_id, pr_title)
+        msg += "(thread id: %s, timestamp: %s)" % (notification['thread_id'], notification['timestamp'])
+        print(msg)
 
         # check comments (latest first)
         pr_data = fetch_pr_data(github, github_account, repository, pr_id, verbose=False)
 
-        comments = list(zip(pr_data['issue_comments']['users'], pr_data['issue_comments']['bodies']))
+        comments_data = pr_data['issue_comments']
+        comments = list(zip(comments_data['ids'], comments_data['users'], comments_data['bodies']))
 
-        check_str = "notification %s processed" % notification['id']
+        # determine comment that triggered the notification
+        trigger_comment_id = None
+        mention_regex = re.compile(r'\s*@%s:?\s*' % github_user, re.M)
+        for comment_id, _, comment_txt in comments[::-1]:
+            if mention_regex.search(comment_txt):
+                trigger_comment_id = comment_id
+                break
+
+        check_str = "notification for comment with ID %s processed" % trigger_comment_id
 
         processed = False
-        for comment_by, comment_txt in comments[::-1]:
+        for _, comment_by, comment_txt in comments[::-1]:
             if comment_by == github_user and check_str in comment_txt:
                 processed = True
                 break
 
         if processed:
-            print("Notification %s already processed, so skipping it..." % notification['id'])
+            msg = "Notification %s already processed, so skipping it... " % notification['id']
+            msg += "(timestamp: %s)" % notification['timestamp']
+            print(msg)
             continue
-
-        mention_regex = re.compile(r'\s*@%s:?\s*' % github_user, re.M)
         host_regex = re.compile(r'@.*%s' % host, re.M)
 
         mention_found = False
-        for comment_by, comment_txt in comments[::-1]:
+        for comment_id, comment_by, comment_txt in comments[::-1]:
             if mention_regex.search(comment_txt):
                 print("Found comment including '%s': %s" % (mention_regex.pattern, comment_txt))
 
@@ -501,18 +514,56 @@ def process_notifications(notifications, github, github_user, github_account, re
                 if host_regex.search(msg):
                     print("Comment includes '%s', so processing it..." % host_regex.pattern)
 
-                    if "please test" in msg:
+                    if comment_by != 'boegel':
+
+                        reply_msg = "@%s: I noticed your comment, " % comment_by
+                        reply_msg += "but I only dance when @boegel tells me (for now), I'm sorry..."
+
+                    elif "please test" in msg:
+
                         system_info = get_system_info()
                         hostname = system_info.get('hostname', '(hostname not known)')
-                        reply_msg = "Test report from %s coming up soon (not really, just testing)..." % hostname
+
+                        reply_msg = "@%s: Request for testing this PR well received on %s\n" % (comment_by, hostname)
+
+                        tmpl_dict = {'pr': pr_id}
+
+                        # check whether custom arguments for 'eb' command are specified
+                        eb_args_regex = re.compile(r'^EB_ARGS=(?P<eb_args>.*)$', re.M)
+                        res = eb_args_regex.search(msg)
+                        if res:
+                            tmpl_dict.update({'eb_args': res.group('eb_args')})
+                        else:
+                            tmpl_dict.update({'eb_args': ''})
+
+                        # run pr test command, check exit code and capture output
+                        cmd = pr_test_cmd % tmpl_dict
+                        (out, ec) = run_cmd(cmd, simple=False)
+
+                        reply_msg += '\n'.join([
+                            '',
+                            "PR test command '`%s`' executed!" % cmd,
+                            "* exit code: %s" % ec,
+                            "* output:",
+                            "```",
+                            out.strip(),
+                            "```",
+                            '',
+                            "Test results coming soon (I hope)...",
+                        ])
+
+                        reply_msg += '\n'.join([
+                            '',
+                            '',
+                            "<details>",
+                            '',
+                            "*Message to humans: this is just bookkeeping information for me,",
+                            "it is of no use to you (unless you think I have a bug, which I don't).*",
+                            "*- %s*" % check_str,
+                            "</details>",
+                        ])
                     else:
                         reply_msg = "Got message \"%s\", but I don't know what to do with it, sorry..." % msg
-
-                    reply_msg += "\n\n<details>\n\n"
-                    reply_msg += "*Message to humans: this is just bookkeeping information for me,\n"
-                    reply_msg += "it is of no use to you (unless you think I have a bug, which I don't).*\n"
-                    reply_msg += "*- %s*\n" % check_str
-                    reply_msg += "\n</details>\n"
 
                     comment(github, github_user, repository, pr_data, reply_msg, verbose=DRY_RUN)
                 else:
@@ -542,6 +593,8 @@ def main():
         'owner': ("Owner of the bot account that is used", None, 'store', 'boegel'),
         'repository': ("Repository to use", None, 'store', 'easybuild-easyconfigs', 'r'),
         'host': ("Label for current host (used to filter comments asking to test a PR)", None, 'store', ''),
+        'pr-test-cmd': ("Command to use for testing easyconfig pull requests (should include '%(pr)s' template value)",
+                        None, 'store', ''),
     }
 
     go = simple_option(go_dict=opts)
@@ -554,6 +607,7 @@ def main():
     owner = go.options.owner
     repository = go.options.repository
     host = go.options.host
+    pr_test_cmd = go.options.pr_test_cmd
 
     github_token = fetch_github_token(github_user)
 
@@ -579,8 +633,12 @@ def main():
     elif mode == MODE_TEST_PR:
         if not host:
             error("--host is required when using '--mode %s' !" % MODE_TEST_PR)
+
+        if '%(pr)s' not in pr_test_cmd or '%(eb_args)s' not in pr_test_cmd:
+            error("--pr-test-cmd should include '%%(pr)s' and '%%(eb_args)s', found '%s'" % (pr_test_cmd))
+
         notifications = check_notifications(github, github_user, github_account, repository)
-        process_notifications(notifications, github, github_user, github_account, repository, host)
+        process_notifications(notifications, github, github_user, github_account, repository, host, pr_test_cmd)
     else:
         error("Unknown mode: %s" % mode)
 
