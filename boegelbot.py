@@ -557,9 +557,10 @@ def process_notifications(notifications, github, github_user, github_account, re
                             '',
                             "<details>",
                             '',
+                            "*- %s*" % check_str,
+                            '',
                             "*Message to humans: this is just bookkeeping information for me,",
                             "it is of no use to you (unless you think I have a bug, which I don't).*",
-                            "*- %s*" % check_str,
                             "</details>",
                         ])
                     else:
