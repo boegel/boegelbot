@@ -216,7 +216,7 @@ def fetch_github_failed_workflows(github, github_account, repository, owner):
 
         head_user = entry['head_repository']['owner']['login']
         head = '%s:%s' % (head_user, entry['head_branch'])
-        print(head)
+        head_sha = entry['head_sha']
 
         # determine corresponding PR (if any)
         status, pr_data = github.repos[github_account][repository].pulls.get(head=head)
@@ -236,15 +236,23 @@ def fetch_github_failed_workflows(github, github_account, repository, owner):
 
             if pr_data['state'] == 'open':
 
+                pr_head_sha = pr_data['head']['sha']
+
+                # make sure workflow was run for latest commit in this PR
+                if head_sha != pr_head_sha:
+                    msg = "Workflow %s was for commit %s, " % (entry['html_url'], head_sha)
+                    msg += "not latest commit in PR #%s (%s), so skipping" % (pr_id, pr_head_sha)
+                    print(msg)
+                    continue
+
                 # check status of most recent commit in this PR,
                 # ignore this PR if status is "success" or "pending"
-                pr_head = pr_data['head']['sha']
-                status, pr_head_data = github.repos[github_account][repository].commits[pr_head].status.get()
+                status, pr_head_data = github.repos[github_account][repository].commits[pr_head_sha].status.get()
                 if status != 200:
                     error("Failed to determine status of last commit in PR #%s" % pr_id)
 
                 pr_status = pr_head_data['state']
-                print("Status of last commit in PR #%s: %s" % (pr_id, pr_status))
+                print("Status of last commit (%s) in PR #%s: %s" % (pr_head_sha, pr_id, pr_status))
 
                 if pr_status in ['pending', 'success']:
                     print("Status of last commit in PR #%s is '%s', so ignoring it for now..." % (pr_id, pr_status))
