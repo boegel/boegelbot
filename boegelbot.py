@@ -505,7 +505,7 @@ def process_notifications(notifications, github, github_user, github_account, re
                 break
 
         if processed:
-            msg = "Notification %s already processed, so skipping it... " % notification['id']
+            msg = "Notification %s already processed, so skipping it... " % notification['thread_id']
             msg += "(timestamp: %s)" % notification['timestamp']
             print(msg)
             continue
