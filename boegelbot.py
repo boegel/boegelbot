@@ -174,7 +174,7 @@ def fetch_travis_failed_builds(github_account, repository, owner, github_token):
                     pr_comment += "* %s - %s => %s\n" % (job.number, job.state, job_url)
 
                 pr_comment += "\n*bleep, bloop, I'm just a bot (boegelbot v%s)*" % VERSION
-                pr_comment += "Please talk to my owner @%s if you notice you me acting stupid)," % owner
+                pr_comment += "Please talk to my owner `@%s` if you notice you me acting stupid)," % owner
                 pr_comment += "or submit a pull request to https://github.com/boegel/boegelbot fix the problem."
 
                 res.append((pr, pr_comment, check_msg))
@@ -339,7 +339,7 @@ def fetch_github_failed_workflows(github, github_account, repository, owner):
                 pr_comment += "```\n"
 
                 pr_comment += "\n*bleep, bloop, I'm just a bot (boegelbot v%s)*\n" % VERSION
-                pr_comment += "Please talk to my owner @%s if you notice you me acting stupid),\n" % owner
+                pr_comment += "Please talk to my owner `@%s` if you notice you me acting stupid),\n" % owner
                 pr_comment += "or submit a pull request to https://github.com/boegel/boegelbot fix the problem."
 
                 res.append((pr_id, pr_comment, check_msg))
@@ -522,10 +522,13 @@ def process_notifications(notifications, github, github_user, github_account, re
                 if host_regex.search(msg):
                     print("Comment includes '%s', so processing it..." % host_regex.pattern)
 
-                    if comment_by != 'boegel':
+                    allowed_accounts = ['boegel', 'smoors']
+                    if comment_by not in allowed_accounts:
+
+                        allowed_accounts_str = ' or '.join('@%s' % x for x in allowed_accounts)
 
                         reply_msg = "@%s: I noticed your comment, " % comment_by
-                        reply_msg += "but I only dance when @boegel tells me (for now), I'm sorry..."
+                        reply_msg += "but I only dance when %s tells me (for now), I'm sorry..." %  allowed_accounts_str
 
                     elif "please test" in msg:
 
