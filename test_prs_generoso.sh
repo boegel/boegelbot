@@ -1,0 +1,1 @@
+python3 ./boegelbot.py --mode test_pr --github-user boegelbot --owner boegel --host generoso --pr-test-cmd "EB_PR=%(pr)s EB_ARGS=%(eb_args)s sbatch --job-name test_PR_%(pr)s ~/boegelbot/eb_from_pr_upload_generoso.sh"
