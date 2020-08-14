@@ -563,19 +563,23 @@ def process_notifications(notifications, github, github_user, github_account, re
                             "Test results coming soon (I hope)...",
                         ])
 
-                        reply_msg += '\n'.join([
-                            '',
-                            '',
-                            "<details>",
-                            '',
-                            "*- %s*" % check_str,
-                            '',
-                            "*Message to humans: this is just bookkeeping information for me,",
-                            "it is of no use to you (unless you think I have a bug, which I don't).*",
-                            "</details>",
-                        ])
                     else:
                         reply_msg = "Got message \"%s\", but I don't know what to do with it, sorry..." % msg
+
+                    # always include 'details' part than includes a check string
+                    # which includes the ID of the comment we're reacting to,
+                    # so we can avoid re-processing the same comment again...
+                    reply_msg += '\n'.join([
+                        '',
+                        '',
+                        "<details>",
+                        '',
+                        "*- %s*" % check_str,
+                        '',
+                        "*Message to humans: this is just bookkeeping information for me,",
+                        "it is of no use to you (unless you think I have a bug, which I don't).*",
+                        "</details>",
+                    ])
 
                     comment(github, github_user, repository, pr_data, reply_msg, verbose=DRY_RUN)
                 else:
