@@ -543,7 +543,8 @@ def process_notifications(notifications, github, github_user, github_account, re
                         eb_args_regex = re.compile(r'^EB_ARGS=(?P<eb_args>.*)$', re.M)
                         res = eb_args_regex.search(msg)
                         if res:
-                            tmpl_dict.update({'eb_args': res.group('eb_args')})
+                            eb_args = res.group('eb_args').replace('"', '\\"')
+                            tmpl_dict.update({'eb_args': '"%s"' % eb_args})
                         else:
                             tmpl_dict.update({'eb_args': ''})
 
