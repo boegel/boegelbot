@@ -19,6 +19,8 @@ except ImportError:
 from easybuild.tools.build_log import EasyBuildError, print_warning
 from easybuild.tools.config import init_build_options
 from easybuild.tools.github import GITHUB_API_URL, GITHUB_MAX_PER_PAGE, fetch_github_token, post_comment_in_issue
+from easybuild.tools.py2vs3 import HTTPError
+from easybuild.tools.github import GITHUB_PR_STATE_OPEN, STATUS_PENDING, STATUS_SUCCESS, fetch_pr_data
 from easybuild.tools.run import run_cmd
 from easybuild.tools.systemtools import get_system_info
 
@@ -187,7 +189,7 @@ def fetch_travis_failed_builds(github_account, repository, owner, github_token):
     return res
 
 
-def fetch_github_failed_workflows(github, github_account, repository, owner):
+def fetch_github_failed_workflows(github, github_account, repository, github_user, owner):
     """Scan GitHub Actions for failed workflow runs."""
 
     res = []
@@ -234,6 +236,8 @@ def fetch_github_failed_workflows(github, github_account, repository, owner):
                 print("PR #%s already encountered, so skipping workflow %s" % (pr_id, entry['html_url']))
                 continue
 
+            pr_data, _ = fetch_pr_data(pr_id, github_account, repository, github_user, full=True)
+
             if pr_data['state'] == 'open':
 
                 pr_head_sha = pr_data['head']['sha']
@@ -247,15 +251,12 @@ def fetch_github_failed_workflows(github, github_account, repository, owner):
 
                 # check status of most recent commit in this PR,
                 # ignore this PR if status is "success" or "pending"
-                status, pr_head_data = github.repos[github_account][repository].commits[pr_head_sha].status.get()
-                if status != 200:
-                    error("Failed to determine status of last commit in PR #%s" % pr_id)
-
-                pr_status = pr_head_data['state']
+                pr_status = pr_data['status_last_commit']
                 print("Status of last commit (%s) in PR #%s: %s" % (pr_head_sha, pr_id, pr_status))
 
-                if pr_status in ['pending', 'success']:
+                if pr_status in [STATUS_PENDING, STATUS_SUCCESS]:
                     print("Status of last commit in PR #%s is '%s', so ignoring it for now..." % (pr_id, pr_status))
+                    continue
 
                 # download list of jobs in workflow
                 run_id = entry['id']
@@ -274,9 +275,14 @@ def fetch_github_failed_workflows(github, github_account, repository, owner):
                 if job_id is None:
                     error("ID of failing job not found for workflow %s" % entry['html_url'])
 
-                status, log_txt = github.repos[github_account][repository].actions.jobs[job_id].logs.get()
+                try:
+                    status, log_txt = github.repos[github_account][repository].actions.jobs[job_id].logs.get()
+                except HTTPError as err:
+                    status = err.code
+
                 if status != 200:
-                    error("Failed to download log for job %s" % job_id)
+                    warning("Failed to download log for job %s" % job_id)
+                    log_txt = '(failed to fetch log contents due to HTTP status code %s)' % status
 
                 # strip off timestamp prefixes
                 # example timestamp: 2020-07-13T09:54:36.5004935Z
@@ -354,43 +360,6 @@ def fetch_github_failed_workflows(github, github_account, repository, owner):
     return res
 
 
-def fetch_pr_data(github, github_account, repository, pr, verbose=True):
-    """Fetch data for a single PR."""
-    pr_data = None
-    try:
-        gh_repo = github.repos[github_account][repository]
-        status, pr_data = gh_repo.pulls[pr].get()
-        if verbose:
-            sys.stdout.write("[data]")
-
-        # enhance PR data with test result for last commit
-        pr_data['unit_test_result'] = 'UNKNOWN'
-        if 'head' in pr_data:
-            sha = pr_data['head']['sha']
-            gh_repo = github.repos[github_account][repository]
-            status, status_data = gh_repo.commits[sha].status.get()
-            if status_data:
-                pr_data['combined_status'] = status_data['state']
-            if verbose:
-                sys.stdout.write("[status]")
-
-        # also pull in issue comments (note: these do *not* include review comments or commit comments)
-        gh_repo = github.repos[github_account][repository]
-        status, comments_data = gh_repo.issues[pr].comments.get(per_page=GITHUB_MAX_PER_PAGE)
-        pr_data['issue_comments'] = {
-            'ids': [c['id'] for c in comments_data],
-            'users': [c['user']['login'] for c in comments_data],
-            'bodies': [c['body'] for c in comments_data],
-        }
-        if verbose:
-            sys.stdout.write("[comments], ")
-
-    except socket.gaierror as err:
-        raise EasyBuildError("Failed to download PR #%s: %s", pr, err)
-
-    return pr_data
-
-
 def comment(github, github_user, repository, pr_data, msg, check_msg=None, verbose=True):
     """Post a comment in the pull request."""
     # decode message first, if needed
@@ -414,8 +383,8 @@ def comment(github, github_user, repository, pr_data, msg, check_msg=None, verbo
     # only actually post comment if it wasn't posted before
     if check_msg:
         msg_regex = re.compile(re.escape(check_msg), re.M)
-        for comment in pr_data['issue_comments']['bodies']:
-            if msg_regex.search(comment):
+        for comment in pr_data['issue_comments']:
+            if msg_regex.search(comment['body']):
                 msg = "Message already found (using pattern '%s'), " % check_msg
                 msg += "not posting comment again to PR %s!" % pr_data['number']
                 print(msg)
@@ -483,7 +452,7 @@ def process_notifications(notifications, github, github_user, github_account, re
         print(msg)
 
         # check comments (latest first)
-        pr_data = fetch_pr_data(github, github_account, repository, pr_id, verbose=False)
+        pr_data, _ = fetch_pr_data(pr_id, github_account, repository, github_user, full=True)
 
         comments_data = pr_data['issue_comments']
         comments = list(zip(comments_data['ids'], comments_data['users'], comments_data['bodies']))
@@ -636,13 +605,13 @@ def main():
         if mode == MODE_CHECK_TRAVIS:
             res = fetch_travis_failed_builds(github_account, repository, owner, github_token)
         elif mode == MODE_CHECK_GITHUB_ACTIONS:
-            res = fetch_github_failed_workflows(github, github_account, repository, owner)
+            res = fetch_github_failed_workflows(github, github_account, repository, github_user, owner)
         else:
             error("Unknown mode: %s" % mode)
 
         for pr, pr_comment, check_msg in res:
-            pr_data = fetch_pr_data(github, github_account, repository, pr)
-            if pr_data['state'] == 'open':
+            pr_data, _ = fetch_pr_data(pr, github_account, repository, github_user, full=True)
+            if pr_data['state'] == GITHUB_PR_STATE_OPEN:
                 comment(github, github_user, repository, pr_data, pr_comment, check_msg=check_msg, verbose=DRY_RUN)
             else:
                 print("Not posting comment in already closed %s PR #%s" % (repository, pr))
