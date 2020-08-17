@@ -455,12 +455,12 @@ def process_notifications(notifications, github, github_user, github_account, re
         pr_data, _ = fetch_pr_data(pr_id, github_account, repository, github_user, full=True)
 
         comments_data = pr_data['issue_comments']
-        comments = list(zip(comments_data['ids'], comments_data['users'], comments_data['bodies']))
 
         # determine comment that triggered the notification
         trigger_comment_id = None
         mention_regex = re.compile(r'\s*@%s:?\s*' % github_user, re.M)
-        for comment_id, _, comment_txt in comments[::-1]:
+        for comment_data in comments_data[::-1]:
+            comment_id, comment_txt = comment_data['id'], comment_data['body']
             if mention_regex.search(comment_txt):
                 trigger_comment_id = comment_id
                 break
@@ -468,7 +468,8 @@ def process_notifications(notifications, github, github_user, github_account, re
         check_str = "notification for comment with ID %s processed" % trigger_comment_id
 
         processed = False
-        for _, comment_by, comment_txt in comments[::-1]:
+        for comment_data in comments_data[::-1]:
+            comment_by, comment_txt = comment_data['user']['login'], comment_data['body']
             if comment_by == github_user and check_str in comment_txt:
                 processed = True
                 break
@@ -481,7 +482,9 @@ def process_notifications(notifications, github, github_user, github_account, re
         host_regex = re.compile(r'@.*%s' % host, re.M)
 
         mention_found = False
-        for comment_id, comment_by, comment_txt in comments[::-1]:
+        for comment_data in comments_data[::-1]:
+            comment_id, comment_by = comment_data['id'], comment_data['user']['login']
+            comment_txt = comment_data['body']
             if mention_regex.search(comment_txt):
                 print("Found comment including '%s': %s" % (mention_regex.pattern, comment_txt))
 
