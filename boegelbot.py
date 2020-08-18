@@ -512,7 +512,7 @@ def process_notifications(notifications, github, github_user, github_account, re
                         tmpl_dict = {'pr': pr_id}
 
                         # check whether custom arguments for 'eb' command are specified
-                        eb_args_regex = re.compile(r'^EB_ARGS=(?P<eb_args>.*)$', re.M)
+                        eb_args_regex = re.compile(r'EB_ARGS=(?P<eb_args>.*)$', re.M)
                         res = eb_args_regex.search(msg)
                         if res:
                             eb_args = res.group('eb_args').replace('"', '\\"')
