@@ -489,7 +489,7 @@ def process_notifications(notifications, github, github_user, github_account, re
             if mention_regex.search(comment_txt):
                 print("Found comment including '%s': %s" % (mention_regex.pattern, comment_txt))
 
-                msg = mention_regex.sub('', comment_txt)
+                msg = mention_regex.sub(' ', comment_txt)
 
                 # require that @<host> is included in comment before taking any action
                 if host_regex.search(msg):
