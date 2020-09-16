@@ -7,6 +7,7 @@ author: Kenneth Hoste (kenneth.hoste@ugent.be)
 import datetime
 import os
 import re
+import shlex
 import socket
 import sys
 from pprint import pformat, pprint
@@ -488,7 +489,7 @@ def process_notifications(notifications, github, github_user, github_account, re
             if mention_regex.search(comment_txt):
                 print("Found comment including '%s': %s" % (mention_regex.pattern, comment_txt))
 
-                msg = mention_regex.sub('', comment_txt)
+                msg = mention_regex.sub(' ', comment_txt)
 
                 # require that @<host> is included in comment before taking any action
                 if host_regex.search(msg):
@@ -512,13 +513,12 @@ def process_notifications(notifications, github, github_user, github_account, re
                         tmpl_dict = {'pr': pr_id}
 
                         # check whether custom arguments for 'eb' command are specified
-                        eb_args_regex = re.compile(r'EB_ARGS=(?P<eb_args>.*)$', re.M)
-                        res = eb_args_regex.search(msg)
-                        if res:
-                            eb_args = res.group('eb_args').replace('"', '\\"')
-                            tmpl_dict.update({'eb_args': '"%s"' % eb_args})
-                        else:
-                            tmpl_dict.update({'eb_args': ''})
+                        tmpl_dict.update({'eb_args': ''})
+                        for item in shlex.split(msg):
+                            if item.startswith('EB_ARGS='):
+                                eb_args = item.strip('EB_ARGS=')
+                                tmpl_dict.update({'eb_args': '"%s"' % eb_args})
+                                break
 
                         # run pr test command, check exit code and capture output
                         cmd = pr_test_cmd % tmpl_dict
