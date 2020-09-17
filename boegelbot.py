@@ -198,7 +198,9 @@ def fetch_github_failed_workflows(github, github_account, repository, github_use
     # only consider failed workflows triggered by pull requests
     params = {
         'event': 'pull_request',
-        'status': 'failure',
+        # filtering based on status='failure' no longer works correctly?!
+        # also with status='completed' some workflow runs are not included in result...
+        # 'status': 'failure',
         'per_page': GITHUB_MAX_PER_PAGE,
     }
 
@@ -208,14 +210,22 @@ def fetch_github_failed_workflows(github, github_account, repository, github_use
         error("Failed to download GitHub Actions workflow runs data: %s" % err)
 
     if status == 200:
-        print("Found %s fail workflow runs for %s/%s" % (len(run_data), github_account, repository))
+        run_data = list(run_data['workflow_runs'])
+        print("Found %s failed workflow runs for %s/%s" % (len(run_data), github_account, repository))
     else:
         error("Status for downloading GitHub Actions workflow runs data should be 200, got %s" % status)
 
     failing_prs = set()
 
-    run_data = run_data['workflow_runs']
     for idx, entry in enumerate(run_data):
+
+        if entry['status'] != 'completed':
+            print("Ignoring incomplete workflow run %s" % entry['html_url'])
+            continue
+
+        if entry['conclusion'] == 'success':
+            print("Ignoring successful workflow run %s" % entry['html_url'])
+            continue
 
         head_user = entry['head_repository']['owner']['login']
         head = '%s:%s' % (head_user, entry['head_branch'])
