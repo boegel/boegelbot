@@ -505,7 +505,7 @@ def process_notifications(notifications, github, github_user, github_account, re
                 if host_regex.search(msg):
                     print("Comment includes '%s', so processing it..." % host_regex.pattern)
 
-                    allowed_accounts = ['bartoldeman', 'boegel', 'casparvl', 'smoors', 'verdurin']
+                    allowed_accounts = ['bartoldeman', 'boegel', 'casparvl', 'migueldiascosta', 'smoors', 'verdurin']
                     if comment_by not in allowed_accounts:
 
                         allowed_accounts_str = ' or '.join('@%s' % x for x in allowed_accounts)
