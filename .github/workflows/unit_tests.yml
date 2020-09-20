@@ -1,0 +1,31 @@
+name: Unit tests
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  build:
+
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os:
+          - ubuntu-latest
+          - macos-latest
+        python-version: [3.6, 3.7, 3.8]
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v2
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v2
+      with:
+        python-version: ${{ matrix.python-version }}
+    - name: Install dependencies (Common)
+      run: |
+        pip install flask PyGithub pytest
+    - name: Run tests
+      run: |
+        cd app
+        PYTHONPATH=$PWD pytest test/testapp.py
