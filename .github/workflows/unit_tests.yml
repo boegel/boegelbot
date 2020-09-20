@@ -26,6 +26,8 @@ jobs:
       run: |
         pip install flask PyGithub pytest
     - name: Run tests
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: |
         cd app
         PYTHONPATH=$PWD pytest test/testapp.py

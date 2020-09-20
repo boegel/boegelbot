@@ -1,6 +1,7 @@
 import copy
 import flask
 import github
+import os
 
 from app import PullRequest, handle_check_run_event, handle_check_suite_event
 from app import handle_event, handle_workflow_run_event
@@ -134,7 +135,7 @@ def test_handle_event(monkeypatch):
 
     monkeypatch.setattr(github.Issue.Issue, 'create_comment', fake_create_comment)
 
-    gh = github.Github()
+    gh = github.Github(os.getenv('GITHUB_TOKEN'))
     events = {
         'check_run': CHECK_RUN_EVENT,
         'check_suite': CHECK_SUITE_EVENT,

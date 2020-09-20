@@ -250,7 +250,8 @@ def create_app(gh):
 
 def main():
     """Main function."""
-    gh = Github()
+
+    gh = Github(os.getenv('GITHUB_TOKEN'))
     return create_app(gh)
 
 
