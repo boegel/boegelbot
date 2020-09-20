@@ -1,14 +1,17 @@
-GitHub App implemented in app.py
+GitHub App implemented in `app.py`
 
 * only tested with Python 3
-* requires Flask (pip install flask)
-* script to start app: run_app.sh
+* requires:
+  * Flask (`pip install flask`)
+    * Flask tutorial: https://flask.palletsprojects.com/en/1.1.x/tutorial/
+  * PyGitHub (`pip install PyGithub`)
+    * https://github.com/PyGithub/PyGithub
+    * API: https://pygithub.readthedocs.io/en/latest/reference.html
+* script to start app: `run_app.sh`
 
 #### References
 
 * example GitHub App implemented in Python: https://github.com/OrkoHunter/pep8speaks/blob/master/server.py
-
-* Flask tutorial: https://flask.palletsprojects.com/en/1.1.x/tutorial/
 
 * production set up Flask app with waitress: https://flask.palletsprojects.com/en/1.1.x/tutorial/deploy/
   ```

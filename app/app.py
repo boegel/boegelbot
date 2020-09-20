@@ -14,6 +14,8 @@ import os
 import pprint
 import sys
 from flask import Flask
+from github import Github
+
 
 DEBUG = False  # True
 SHA1 = 'sha1'
@@ -88,7 +90,7 @@ def verify_request(request):
             flask.abort(501)
 
 
-def handle_check_run_event(request):
+def handle_check_run_event(gh, request):
     """
     Handle 'check_run' event
     """
@@ -98,12 +100,18 @@ def handle_check_run_event(request):
         'app_name': request.json['check_run']['app']['name'],
         'app_slug': request.json['check_run']['app']['slug'],
         'conclusion': request.json['check_run']['conclusion'],
+        'html_url': request.json['check_run']['html_url'],
+        'name': request.json['check_run']['name'],
+        'repo': request.json['repository']['full_name'],
         'status': request.json['check_run']['status'],
     }
+    pull_requests = request.json['check_run'].get('pull_requests', [])
+    if pull_requests:
+        check_run_data['pr_id'] = pull_requests[0]['number']
     log("Check run event handled: %s" % pprint.pformat(check_run_data))
 
 
-def handle_check_suite_event(request):
+def handle_check_suite_event(gh, request):
     """
     Handle 'check_suite' event
     """
@@ -113,12 +121,17 @@ def handle_check_suite_event(request):
         'app_name': request.json['check_suite']['app']['name'],
         'app_slug': request.json['check_suite']['app']['slug'],
         'conclusion': request.json['check_suite']['conclusion'],
+        'repo': request.json['repository']['full_name'],
         'status': request.json['check_suite']['status'],
     }
+    pull_requests = request.json['check_suite'].get('pull_requests', [])
+    if pull_requests:
+        check_suite_data['pr_id'] = pull_requests[0]['number']
+
     log("Check suite event handled: %s" % pprint.pformat(check_suite_data))
 
 
-def handle_ping_event(request):
+def handle_ping_event(gh, request):
     """
     Handle 'ping' event
     """
@@ -126,22 +139,29 @@ def handle_ping_event(request):
     return flask.Response(status=200)
 
 
-def handle_pr_labeled_event(request, pr):
+def handle_pr_labeled_event(gh, request, pr):
     """
     Handle adding of a label to a pull request.
     """
     label_name = request.json['label']['name']
     log("Label added for %s PR #%s: %s" % (pr.repo, pr.id, label_name))
 
+    repo = gh.get_repo(pr.repo)
+    msg = "I noticed @%s added label '%s'" % (pr.author, label_name)
+    repo.get_issue(pr.id).create_comment(msg)
 
-def handle_pr_opened_event(request, pr):
+
+def handle_pr_opened_event(gh, request, pr):
     """
     Handle opening of a pull request.
     """
     log("PR #%s opened in %s" % (pr.id, pr.repo))
 
+    repo = gh.get_repo(pr.repo)
+    repo.get_issue(pr.id).create_comment("Nice PR @%s!" % pr.author)
 
-def handle_pr_event(request):
+
+def handle_pr_event(gh, request):
     """
     Handle 'pull_request' event
     """
@@ -157,27 +177,35 @@ def handle_pr_event(request):
     handler = handlers.get(action)
     if handler:
         log("Handling PR action '%s' for %s PR #%d..." % (action, pr.repo, pr.id))
-        handler(request, pr)
+        handler(gh, request, pr)
     else:
         log("No handler for PR action '%s'" % action)
 
     return flask.Response(status=200)
 
 
-def handle_workflow_run_event(request):
+def handle_workflow_run_event(gh, request):
     """
     Handle 'workflow_run' event
     """
+    debug_log("Request body: %s" % pprint.pformat(request.json))
     workflow_run_data = {
         'action': request.json['action'],
         'conclusion': request.json['workflow_run']['conclusion'],
+        'html_url': request.json['workflow_run']['html_url'],
+        'repo': request.json['repository']['full_name'],
         'status': request.json['workflow_run']['status'],
+        'workflow_name': request.json['workflow']['name'],
+        'workflow_path': request.json['workflow']['path'],
     }
-    debug_log("Request body: %s" % pprint.pformat(request.json))
+    pull_requests = request.json['workflow_run'].get('pull_requests', [])
+    if pull_requests:
+        workflow_run_data['pr_id'] = pull_requests[0]['number']
+
     log("Workflow run event handled: %s" % pprint.pformat(workflow_run_data))
 
 
-def handle_event(request):
+def handle_event(gh, request):
     """
     Handle event
     """
@@ -195,7 +223,7 @@ def handle_event(request):
         log("Event type: %s" % event_type)
         # log("Request headers: %s" % pprint.pformat(request.headers))
         # log("Request body: %s" % pprint.pformat(request.json))
-        event_handler(request)
+        event_handler(gh, request)
     else:
         log("Unsupported event type: %s" % event_type)
         response_data = {'Unsupported event type': event_type}
@@ -203,7 +231,7 @@ def handle_event(request):
         return flask.Response(response_object, status=400, mimetype='application/json')
 
 
-def create_app():
+def create_app(gh):
     """
     Create Flask app.
     """
@@ -214,12 +242,18 @@ def create_app():
     def main():
         log("%s request received!" % flask.request.method)
         verify_request(flask.request)
-        handle_event(flask.request)
+        handle_event(gh, flask.request)
         return ''
 
     return app
 
 
+def main():
+    """Main function."""
+    gh = Github()
+    return create_app(gh)
+
+
 if __name__ == '__main__':
-    app = create_app()
+    app = main()
     app.run()
