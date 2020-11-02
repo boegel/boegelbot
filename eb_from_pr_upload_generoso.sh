@@ -1,7 +1,6 @@
 #!/bin/bash -l
 #SBATCH --nodes 1
-#SBATCH --ntasks=16
-#SBATCH --ntasks-per-node=16
+#SBATCH --ntasks=4
 #SBATCH --time 100:0:0
 #SBATCH --get-user-env
 

@@ -449,7 +449,7 @@ def check_notifications(github, github_user, github_account, repository):
     return retained
 
 
-def process_notifications(notifications, github, github_user, github_account, repository, host, pr_test_cmd):
+def process_notifications(notifications, github, github_user, github_account, repository, host, pr_test_cmd, core_cnt):
     """Process provided notifications."""
 
     res = []
@@ -522,13 +522,17 @@ def process_notifications(notifications, github, github_user, github_account, re
 
                         tmpl_dict = {'pr': pr_id}
 
-                        # check whether custom arguments for 'eb' command are specified
-                        tmpl_dict.update({'eb_args': ''})
+                        # check whether custom arguments for 'eb' or submit command are specified
+                        tmpl_dict.update({
+                            'core_cnt': core_cnt,
+                            'eb_args': '',
+                        })
                         for item in shlex.split(msg):
-                            if item.startswith('EB_ARGS='):
-                                eb_args = item.strip('EB_ARGS=')
-                                tmpl_dict.update({'eb_args': '"%s"' % eb_args})
-                                break
+                            for key in ['CORE_CNT', 'EB_ARGS']:
+                                if item.startswith(key + '='):
+                                    value = item.strip(key + '=')
+                                    tmpl_dict[key.lower()] = '"%s"' % value
+                                    break
 
                         # run pr test command, check exit code and capture output
                         cmd = pr_test_cmd % tmpl_dict
@@ -585,6 +589,7 @@ def process_notifications(notifications, github, github_user, github_account, re
 def main():
 
     opts = {
+        'core-cnt': ("Default core count to use for jobs", None, 'store', None),
         'github-account': ("GitHub account where repository is located", None, 'store', 'easybuilders', 'a'),
         'github-user': ("GitHub user to use (for authenticated access)", None, 'store', 'boegel', 'u'),
         'mode': ("Mode to run in", 'choice', 'store', MODE_CHECK_TRAVIS,
@@ -607,6 +612,7 @@ def main():
     repository = go.options.repository
     host = go.options.host
     pr_test_cmd = go.options.pr_test_cmd
+    core_cnt = go.options.core_cnt
 
     github_token = fetch_github_token(github_user)
 
@@ -636,8 +642,12 @@ def main():
         if '%(pr)s' not in pr_test_cmd or '%(eb_args)s' not in pr_test_cmd:
             error("--pr-test-cmd should include '%%(pr)s' and '%%(eb_args)s', found '%s'" % (pr_test_cmd))
 
+        if core_cnt is None:
+            error("--core-cnt must be used to specify the default number of cores to request per submitted job!")
+
         notifications = check_notifications(github, github_user, github_account, repository)
-        process_notifications(notifications, github, github_user, github_account, repository, host, pr_test_cmd)
+        process_notifications(notifications, github, github_user, github_account, repository, host, pr_test_cmd,
+                              core_cnt)
     else:
         error("Unknown mode: %s" % mode)
 
