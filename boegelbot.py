@@ -531,7 +531,7 @@ def process_notifications(notifications, github, github_user, github_account, re
                         for item in shlex.split(msg):
                             for key in ['CORE_CNT', 'EB_ARGS']:
                                 if item.startswith(key + '='):
-                                    value = item.strip(key + '=')
+                                    _, value = item.split('=', 1)
                                     tmpl_dict[key.lower()] = '"%s"' % value
                                     break
 
