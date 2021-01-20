@@ -463,7 +463,8 @@ def process_notifications(notifications, github, github_user, github_account, re
         print(msg)
 
         # check comments (latest first)
-        pr_data, _ = fetch_pr_data(pr_id, github_account, repository, github_user, full=True)
+        pr_data, _ = fetch_pr_data(pr_id, github_account, repository, github_user, full=True,
+                                   per_page=GITHUB_MAX_PER_PAGE)
 
         comments_data = pr_data['issue_comments']
 
@@ -482,6 +483,7 @@ def process_notifications(notifications, github, github_user, github_account, re
         for comment_data in comments_data[::-1]:
             comment_by, comment_txt = comment_data['user']['login'], comment_data['body']
             if comment_by == github_user and check_str in comment_txt:
+                print("check_str '%s' found in: %s" % (check_str, comment_txt))
                 processed = True
                 break
 
@@ -505,7 +507,7 @@ def process_notifications(notifications, github, github_user, github_account, re
                 if host_regex.search(msg):
                     print("Comment includes '%s', so processing it..." % host_regex.pattern)
 
-                    allowed_accounts = ['bartoldeman', 'boegel', 'branfosj', 'casparvl',
+                    allowed_accounts = ['akesandgren', 'bartoldeman', 'boegel', 'branfosj', 'casparvl',
                                         'Micket', 'migueldiascosta', 'smoors', 'verdurin']
                     if comment_by not in allowed_accounts:
 
