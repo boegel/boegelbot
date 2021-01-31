@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 #
 # GitHub App for the EasyBuild project
+# https://github.com/boegel/boegelbot (see 'app' subdirectory)
 #
-# author: Kenneth Hoste (github.com/boegel)
+# author: Kenneth Hoste (@boegel)
 #
 # license: GPLv2
 #
@@ -12,6 +13,7 @@ import hmac
 import json
 import os
 import pprint
+import subprocess
 import sys
 from flask import Flask
 from github import Github
@@ -139,38 +141,72 @@ def handle_ping_event(gh, request):
     return flask.Response(status=200)
 
 
-def handle_pr_labeled_event(gh, request, pr):
+def handle_pr_label_event(gh, request, pr):
     """
     Handle adding of a label to a pull request.
     """
-    label_name = request.json['label']['name']
-    log("Label added for %s PR #%s: %s" % (pr.repo, pr.id, label_name))
+    debug_log("Request body: %s" % pprint.pformat(request.json))
 
-    repo = gh.get_repo(pr.repo)
-    msg = "I noticed @%s added label '%s'" % (pr.author, label_name)
-    repo.get_issue(pr.id).create_comment(msg)
+    action = request.json['action']
+    label_name = request.json['label']['name']
+    user = request.json['sender']['login']
+
+    log("%(repo)s PR #%(id)s %(action)s by %(user)s: %(label)s" % {
+        'action': action,
+        'repo': pr.repo,
+        'id': pr.id,
+        'label': label_name,
+        'user': user,
+    })
+
+    hostname = os.environ['HOSTNAME']
+
+    # only react if label was added by @boegel, is a 'test:*' label, and matches current host
+    if action == 'labeled' and user == 'boegel' and label_name.startswith('test:' + hostname):
+
+        repo = gh.get_repo(pr.repo)
+        issue = repo.get_issue(pr.id)
+
+        pr_target_account = request.json['repository']['owner']['login']
+
+        cmd = [
+            'eb',
+            '--from-pr',
+            str(pr.id),
+            '--robot',
+            '--force',
+            '--upload-test-report',
+        ]
+
+        if pr_target_account != 'easybuilders':
+            cmd.extend([
+                '--pr-target-account',
+                pr_target_account,
+            ])
+
+        log("Testing %s PR #%d by request of %s by running: %s" % (pr.repo, pr.id, user, ' '.join(cmd)))
+
+        msg_lines = [
+            "Fine, fine, I'm on it.",
+            "Started command: `%s`" % ' '.join(cmd),
+        ]
+
+        issue.create_comment('\n'.join(msg_lines))
+
+        process = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True)
+        process
+        stderr, stdout, exit_code = process.stderr, process.stdout, process.returncode
+
+        log("Command '%s' completed, exit code %s" % (' '.join(cmd), exit_code))
+        log("Stdout:\n" + stdout)
+        log("Stderr:\n" + stderr)
 
 
 def handle_pr_opened_event(gh, request, pr):
     """
     Handle opening of a pull request.
     """
-    log("PR #%s opened in %s" % (pr.id, pr.repo))
-
-    repo = gh.get_repo(pr.repo)
-    repo.get_issue(pr.id).create_comment("Nice PR @%s!" % pr.author)
-
-
-def handle_pr_unlabeled_event(gh, request, pr):
-    """
-    Handle removing of a label to a pull request.
-    """
-    label_name = request.json['label']['name']
-    log("Label removed for %s PR #%s: %s" % (pr.repo, pr.id, label_name))
-
-    repo = gh.get_repo(pr.repo)
-    msg = "I noticed @%s removed label '%s'" % (pr.author, label_name)
-    repo.get_issue(pr.id).create_comment(msg)
+    log("PR #%s opened in %s by %s" % (pr.id, pr.repo, pr.author))
 
 
 def handle_pr_event(gh, request):
@@ -183,9 +219,9 @@ def handle_pr_event(gh, request):
     log("PR data: %s" % pr)
 
     handlers = {
-        'labeled': handle_pr_labeled_event,
+        'labeled': handle_pr_label_event,
         'opened': handle_pr_opened_event,
-        'unlabeled': handle_pr_unlabeled_event,
+        'unlabeled': handle_pr_label_event,
     }
     handler = handlers.get(action)
     if handler:
