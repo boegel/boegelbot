@@ -7,7 +7,17 @@ GitHub App implemented in `app.py`
   * PyGitHub (`pip install PyGithub`)
     * https://github.com/PyGithub/PyGithub
     * API: https://pygithub.readthedocs.io/en/latest/reference.html
+  * Waitress (`pip install Waitress`)
+    * https://docs.pylonsproject.org/projects/waitress/en/stable/
 * script to start app: `run_app.sh`
+
+#### Setup
+
+Two environment variables must be set:
+
+* `$GITHUB_APP_SECRET_TOKEN` (see https://github.com/settings/apps/boegelbotapp)
+
+* `$GITHUB_TOKEN`: Personal Access Token (PAT) for account to use to create comments, etc.
 
 #### References
 
@@ -18,14 +28,14 @@ GitHub App implemented in `app.py`
   ./run_app.sh
   ```
 
+* smee.io for sending GitHub webhooks to app,
+  see https://docs.github.com/en/developers/apps/setting-up-your-development-environment-to-create-a-github-app#step-1-start-a-new-smee-channel
+  ```
+  smee -u <smee.io URL>
+  ```
+
 * reflex to automatically rerun web app when code changes: https://github.com/cespare/reflex
   ```
   ~/go/bin/reflex -s -r 'app.py' -- ./run_app.sh
   ```
   (install with `go get github.com/cespare/reflex`)
-
-* ngrok tunnel: https://dashboard.ngrok.com
-  ```
-  ~/ngrok http 8080
-  ```
-  (download as static binary)
