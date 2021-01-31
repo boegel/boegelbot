@@ -161,6 +161,18 @@ def handle_pr_opened_event(gh, request, pr):
     repo.get_issue(pr.id).create_comment("Nice PR @%s!" % pr.author)
 
 
+def handle_pr_unlabeled_event(gh, request, pr):
+    """
+    Handle removing of a label to a pull request.
+    """
+    label_name = request.json['label']['name']
+    log("Label removed for %s PR #%s: %s" % (pr.repo, pr.id, label_name))
+
+    repo = gh.get_repo(pr.repo)
+    msg = "I noticed @%s removed label '%s'" % (pr.author, label_name)
+    repo.get_issue(pr.id).create_comment(msg)
+
+
 def handle_pr_event(gh, request):
     """
     Handle 'pull_request' event
@@ -173,6 +185,7 @@ def handle_pr_event(gh, request):
     handlers = {
         'labeled': handle_pr_labeled_event,
         'opened': handle_pr_opened_event,
+        'unlabeled': handle_pr_unlabeled_event,
     }
     handler = handlers.get(action)
     if handler:
