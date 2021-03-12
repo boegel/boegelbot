@@ -21,4 +21,4 @@ export EASYBUILD_GITHUB_USER=boegelbot
 
 export EB_PYTHON=python3
 
-eb --from-pr $EB_PR --debug --rebuild --robot --upload-test-report $EB_ARGS
+eb --from-pr $EB_PR --debug --rebuild --robot --upload-test-report --download-timeout=1000 $EB_ARGS
