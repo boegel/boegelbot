@@ -510,7 +510,7 @@ def process_notifications(notifications, github, github_user, github_account, re
                     allowed_accounts = ['akesandgren', 'bartoldeman', 'boegel', 'branfosj', 'casparvl',
                                         'Micket', 'migueldiascosta', 'smoors', 'verdurin']
 
-                    please_regex = re.compile('r'[Pp]lease test', re.M)
+                    please_regex = re.compile(r'[Pp]lease test', re.M)
 
                     if comment_by not in allowed_accounts:
 
