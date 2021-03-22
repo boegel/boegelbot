@@ -509,6 +509,9 @@ def process_notifications(notifications, github, github_user, github_account, re
 
                     allowed_accounts = ['akesandgren', 'bartoldeman', 'boegel', 'branfosj', 'casparvl',
                                         'Micket', 'migueldiascosta', 'smoors', 'verdurin']
+
+                    please_regex = re.compile(r'[Pp]lease test', re.M)
+
                     if comment_by not in allowed_accounts:
 
                         allowed_accounts_str = ' or '.join('@%s' % x for x in allowed_accounts)
@@ -516,7 +519,9 @@ def process_notifications(notifications, github, github_user, github_account, re
                         reply_msg = "@%s: I noticed your comment, " % comment_by
                         reply_msg += "but I only dance when %s tells me (for now), I'm sorry..." %  allowed_accounts_str
 
-                    elif "please test" in msg:
+                    elif "PLEASE " in msg:
+                        reply_msg = "Don't scream, it's rude and I don't like people who do..."
+                    elif please_regex.search(msg):
 
                         system_info = get_system_info()
                         hostname = system_info.get('hostname', '(hostname not known)')
