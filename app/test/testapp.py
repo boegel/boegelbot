@@ -47,6 +47,7 @@ PULL_REQUEST_OPENED_EVENT = {
         'head': {'sha': '662e87628812fdcf77caffbeb723b3f840ea54a5'},
     },
     'repository': {'full_name': 'boegel/easybuild-easyconfigs'},
+    'sender': {'login': 'boegel'},
 }
 
 PULL_REQUEST_LABELED_EVENT = copy.deepcopy(PULL_REQUEST_OPENED_EVENT)
@@ -146,16 +147,12 @@ def test_handle_event(monkeypatch):
         request = FakeRequest(event_type, events[event_type])
         handle_event(gh, request)
 
-    # PR opened event triggers a comment
-    comments = []
+    # test handling of PR events
     request = FakeRequest('pull_request', PULL_REQUEST_OPENED_EVENT)
     handle_event(gh, request)
-    assert comments == ["Nice PR @boegel!"]
 
-    comments = []
     request = FakeRequest('pull_request', PULL_REQUEST_LABELED_EVENT)
     handle_event(gh, request)
-    assert comments == ["I noticed @boegel added label 'test'"]
 
     # check handling of unsupported events
     request = FakeRequest('unknown_event_type', {})
