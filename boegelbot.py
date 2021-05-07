@@ -265,7 +265,7 @@ def fetch_github_failed_workflows(github, github_account, repository, github_use
                 pr_status = pr_data['status_last_commit']
                 print("Status of last commit (%s) in PR #%s: %s" % (pr_head_sha, pr_id, pr_status))
 
-                if pr_status in [STATUS_PENDING, STATUS_SUCCESS]:
+                if pr_status in ['action_required', STATUS_PENDING, STATUS_SUCCESS]:
                     print("Status of last commit in PR #%s is '%s', so ignoring it for now..." % (pr_id, pr_status))
                     continue
 
