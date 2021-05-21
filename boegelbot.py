@@ -637,7 +637,8 @@ def main():
             error("Unknown mode: %s" % mode)
 
         for pr, pr_comment, check_msg in res:
-            pr_data, _ = fetch_pr_data(pr, github_account, repository, github_user, full=True)
+            params = {'per_page': GITHUB_MAX_PER_PAGE}
+            pr_data, _ = fetch_pr_data(pr, github_account, repository, github_user, full=True, **params)
             if pr_data['state'] == GITHUB_PR_STATE_OPEN:
                 comment(github, github_user, repository, pr_data, pr_comment, check_msg=check_msg, verbose=DRY_RUN)
             else:
