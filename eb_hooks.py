@@ -11,22 +11,24 @@ def pre_sanitycheck_hook(self, *args, **kwargs):
     # make sure that nothing links to system OpenSSL libraries directly,
     # should be done via OpenSSL wrapper installation provided through EasyBuild
 
+    # note: for banned library paths starting with /lib or /lib64 we need to include a space in front,
+    # to avoid that paths like $EBROOTOPENSSL/lib/libssl.so.10 are reported as linking to a banned library...
     openssl_libs = [
         # CentOS 7, openssl-libs package (OpenSSL 1.0.2)
-        os.path.join('/lib', 'libcrypto.so.10'),
-        os.path.join('/lib', 'libssl.so.10'),
-        os.path.join('/lib64', 'libcrypto.so.10'),
-        os.path.join('/lib64', 'libssl.so.10'),
+        ' ' + os.path.join('/lib', 'libcrypto.so.10'),
+        ' ' + os.path.join('/lib', 'libssl.so.10'),
+        ' ' + os.path.join('/lib64', 'libcrypto.so.10'),
+        ' ' + os.path.join('/lib64', 'libssl.so.10'),
         os.path.join('/usr', 'lib', 'libcrypto.so.10'),
         os.path.join('/usr', 'lib', 'libssl.so.10'),
         os.path.join('/usr', 'lib64', 'libcrypto.so.10'),
         os.path.join('/usr', 'lib64', 'libssl.so.10'),
         # CentOS 7, openssl11-libs package (OpenSSL 1.1.1)
         # RHEL 8, openssl-libs package (OpenSSL 1.1.1)
-        os.path.join('/lib', 'libcrypto.so.1.1'),
-        os.path.join('/lib', 'libssl.so.1.1'),
-        os.path.join('/lib64', 'libcrypto.so.1.1'),
-        os.path.join('/lib64', 'libssl.so.1.1'),
+        ' ' + os.path.join('/lib', 'libcrypto.so.1.1'),
+        ' ' + os.path.join('/lib', 'libssl.so.1.1'),
+        ' ' + os.path.join('/lib64', 'libcrypto.so.1.1'),
+        ' ' + os.path.join('/lib64', 'libssl.so.1.1'),
         os.path.join('/usr', 'lib', 'libcrypto.so.1.1'),
         os.path.join('/usr', 'lib', 'libssl.so.1.1'),
         os.path.join('/usr', 'lib64', 'libcrypto.so.1.1'),
