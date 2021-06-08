@@ -507,8 +507,9 @@ def process_notifications(notifications, github, github_user, github_account, re
                 if host_regex.search(msg):
                     print("Comment includes '%s', so processing it..." % host_regex.pattern)
 
-                    allowed_accounts = ['akesandgren', 'bartoldeman', 'boegel', 'branfosj', 'casparvl',
-                                        'Micket', 'migueldiascosta', 'smoors', 'verdurin']
+                    allowed_accounts = ['akesandgren', 'bartoldeman', 'bedroge', 'boegel', 'branfosj', 'casparvl',
+                                        'Micket', 'migueldiascosta', 'ocaisa', 'SebastianAchilles', 'smoors',
+                                        'verdurin']
 
                     please_regex = re.compile(r'[Pp]lease test', re.M)
 
