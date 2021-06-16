@@ -247,7 +247,8 @@ def fetch_github_failed_workflows(github, github_account, repository, github_use
                 print("PR #%s already encountered, so skipping workflow %s" % (pr_id, entry['html_url']))
                 continue
 
-            pr_data, _ = fetch_pr_data(pr_id, github_account, repository, github_user, full=True)
+            pr_data, _ = fetch_pr_data(pr_id, github_account, repository, github_user, full=True,
+                                       per_page=GITHUB_MAX_PER_PAGE)
 
             if pr_data['state'] == 'open':
 
@@ -507,9 +508,11 @@ def process_notifications(notifications, github, github_user, github_account, re
                 if host_regex.search(msg):
                     print("Comment includes '%s', so processing it..." % host_regex.pattern)
 
-                    allowed_accounts = ['akesandgren', 'bartoldeman', 'bedroge', 'boegel', 'branfosj', 'casparvl',
-                                        'Micket', 'migueldiascosta', 'ocaisa', 'SebastianAchilles', 'smoors',
-                                        'verdurin']
+                    maintainers = ['akesandgren', 'bartoldeman', 'bedroge', 'boegel', 'branfosj', 'casparvl',
+                                   'Micket', 'migueldiascosta', 'ocaisa', 'SebastianAchilles', 'smoors',
+                                   'verdurin']
+                    contributors = ['robert-mijakovic']
+                    allowed_accounts = maintainers + contributors
 
                     please_regex = re.compile(r'[Pp]lease test', re.M)
 
