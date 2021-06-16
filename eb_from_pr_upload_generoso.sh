@@ -21,4 +21,6 @@ export EASYBUILD_GITHUB_USER=boegelbot
 
 export EB_PYTHON=python3
 
+export EASYBUILD_ACCEPT_EULA_FOR='.*'
+
 eb --from-pr $EB_PR --debug --rebuild --robot --upload-test-report --download-timeout=1000 $EB_ARGS
