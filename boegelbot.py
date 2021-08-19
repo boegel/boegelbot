@@ -305,7 +305,7 @@ def fetch_github_failed_workflows(github, github_account, repository, github_use
                 # "ERROR: Not all tests were successful"
                 error_line_idx = None
                 for idx, line in enumerate(log_lines):
-                    if "ERROR: Not all tests were successful" in line:
+                    if line.startswith("ERROR: Not all tests were successful"):
                         error_line_idx = idx
                         break
 
