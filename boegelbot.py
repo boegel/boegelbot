@@ -74,6 +74,7 @@ def is_fluke(job_log_txt):
         r"Error 502: Bad Gateway",
         # GitHub Actions fluke failures
         r"500 \(Internal Server Error\)",
+        r"failed: Connection timed out",  # for downloading stuff from SourceForge
     ]
     fluke = False
     for pattern in fluke_patterns:
