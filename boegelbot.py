@@ -292,14 +292,16 @@ def fetch_github_failed_workflows(github, github_account, repository, github_use
                 except HTTPError as err:
                     status = err.code
 
-                if status != 200:
+                if status == 200:
+                    print("Downloaded log for job %s" % job_id)
+                else:
                     warning("Failed to download log for job %s" % job_id)
                     log_txt = '(failed to fetch log contents due to HTTP status code %s)' % status
 
                 # strip off timestamp prefixes
                 # example timestamp: 2020-07-13T09:54:36.5004935Z
                 timestamp_regex = re.compile(r'^[0-9-]{10}T[0-9:]{8}\.[0-9]+Z ')
-                log_lines = [timestamp_regex.sub('', l) for l in log_txt.splitlines()]
+                log_lines = [timestamp_regex.sub('', x) for x in log_txt.splitlines()]
 
                 # determine line that marks end of output for failing test suite:
                 # "ERROR: Not all tests were successful"
@@ -307,10 +309,12 @@ def fetch_github_failed_workflows(github, github_account, repository, github_use
                 for idx, line in enumerate(log_lines):
                     if line.startswith("ERROR: Not all tests were successful"):
                         error_line_idx = idx
+                        print("Found error line @ index %s" % error_line_idx)
                         break
 
                 if error_line_idx is None:
-                    warning("Log line that marks end of test suite output not found!\n%s" % '\n'.join(log_lines))
+                    log_txt_clean = '\n'.join(log_lines)
+                    warning("Log line that marks end of test suite output not found for job %s!\n%s" % (job_id, log_txt_clean))
                     if is_fluke(log_txt):
                         owner_gh_token = fetch_github_token(owner)
                         if owner_gh_token:
