@@ -75,6 +75,7 @@ def is_fluke(job_log_txt):
         # GitHub Actions fluke failures
         r"500 \(Internal Server Error\)",
         r"failed: Connection timed out",  # for downloading stuff from SourceForge
+        r"unable to resolve host address",  # DNS issues
     ]
     fluke = False
     for pattern in fluke_patterns:
