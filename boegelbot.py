@@ -500,6 +500,13 @@ def process_notifications(notifications, github, github_user, github_account, re
             msg += "(timestamp: %s)" % notification['timestamp']
             print(msg)
             continue
+
+        # Make sure that also only --host can be specified without the --gpuhost and vice versa
+        if not host:
+          host = 'NO_HOST_PATTERN_PROVIDED'
+        if not gpuhost:
+          gpuhost = 'NO_GPUHOST_PATTERN_PROVIDED'
+
         host_regex = re.compile(r'@.*%s' % host, re.M)
         gpuhost_regex = re.compile(r'@.*%s' % gpuhost, re.M)
 
@@ -512,7 +519,7 @@ def process_notifications(notifications, github, github_user, github_account, re
 
                 msg = mention_regex.sub(' ', comment_txt)
 
-                # require that @<host> is included in comment before taking any action
+                # require that @<host> or @<gpuhost> is included in comment before taking any action
                 if host_regex.search(msg) or gpuhost_regex.search(msg):
                     print("Comment includes '%s', so processing it..." % host_regex.pattern)
 
