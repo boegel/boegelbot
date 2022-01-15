@@ -501,7 +501,7 @@ def process_notifications(notifications, github, github_user, github_account, re
             print(msg)
             continue
 
-        # Make sure that also only --host can be specified without the --gpuhost and vice versa
+        # Make sure that also only --host can be specified without --gpuhost and vice versa
         if not host:
           host = 'NO_HOST_PATTERN_PROVIDED'
         if not gpuhost:
