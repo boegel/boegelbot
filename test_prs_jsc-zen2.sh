@@ -1,0 +1,1 @@
+python3 ./boegelbot.py --mode test_pr --github-user boegelbot --owner SebastianAchilles --host jsc-zen2 --core-cnt 8 --pr-test-cmd "EB_PR=%(pr)s EB_ARGS=%(eb_args)s /opt/software/slurm/bin/sbatch --job-name test_PR_%(pr)s --ntasks=%(core_cnt)s ~/boegelbot/eb_from_pr_upload_jsc-zen2.sh"
