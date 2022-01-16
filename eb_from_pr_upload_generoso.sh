@@ -2,6 +2,7 @@
 #SBATCH --nodes 1
 #SBATCH --ntasks=4
 #SBATCH --time 100:0:0
+#SBATCH --output /project/boegelbot/slurmjobs/slurm-%j.out
 #SBATCH --get-user-env
 
 set -e
