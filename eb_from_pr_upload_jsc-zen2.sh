@@ -28,6 +28,8 @@ export EASYBUILD_ACCEPT_EULA_FOR='.*'
 
 export EASYBUILD_HOOKS=$HOME/boegelbot/eb_hooks.py
 
+export EASYBUILD_OPTARCH='Intel:march=core-avx2'
+
 export EASYBUILD_CUDA_COMPUTE_CAPABILITIES=7.0
 
 export EASYBUILD_SET_GID_BIT=1
