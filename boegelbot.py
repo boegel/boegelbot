@@ -77,6 +77,7 @@ def is_fluke(job_log_txt):
         r"failed: Connection timed out",  # for downloading stuff from SourceForge
         r"unable to resolve host address",  # DNS issues
         r"fetch-pack: unexpected disconnect",
+        r"Internal Server Error occurred while resolving",
     ]
     fluke = False
     for pattern in fluke_patterns:
