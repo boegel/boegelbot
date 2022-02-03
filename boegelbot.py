@@ -517,7 +517,7 @@ def process_notifications(notifications, github, github_user, github_account, re
 
                     maintainers = ['akesandgren', 'bartoldeman', 'bedroge', 'boegel', 'branfosj', 'casparvl',
                                    'lexming', 'Micket', 'migueldiascosta', 'ocaisa', 'SebastianAchilles', 'smoors',
-                                   'verdurin']
+                                   'verdurin', 'jfgrimm']
                     contributors = ['robert-mijakovic']
                     allowed_accounts = maintainers + contributors
 
