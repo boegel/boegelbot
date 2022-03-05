@@ -21,6 +21,16 @@ export PYTHONPATH=$EB_PREFIX/easybuild-framework:$EB_PREFIX/easybuild-easyblocks
 # see https://docs.easybuild.io/en/latest/Installation.html#requirements
 ln -s `which $EB_PYTHON` $BINDIR
 ln -s `which module` $BINDIR
+ln -s `which tar` $BINDIR
+ln -s `which gunzip` $BINDIR
+ln -s `which bunzip2` $BINDIR
+ln -s `which unzip` $BINDIR
+ln -s `which unxz` $BINDIR
+ln -s `which patch` $BINDIR
+ln -s `which rpm` $BINDIR
+ln -s `which dpkg` $BINDIR
+ln -s `which locate` $BINDIR
+ln -s `which sysctl` $BINDIR
 
 export PATH=$EB_PREFIX/easybuild-framework:$HOME/.local/bin:$BINDIR
 
