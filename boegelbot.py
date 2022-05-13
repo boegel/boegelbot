@@ -554,16 +554,17 @@ def process_notifications(notifications, github, github_user, github_account, re
                         tmpl_dict.update({
                             'core_cnt': core_cnt,
                             'eb_args': '',
+                            'slurm_args': '',
                         })
 
                         # if running on gpuhost add gpu_job_opt to tmpl_dict
                         if gpuhost_regex.search(msg):
                           tmpl_dict.update({
-                              'gpu_job_opt': gpu_job_opt,
+                              'slurm_args': gpu_job_opt,
                           })
 
                         for item in shlex.split(msg):
-                            for key in ['CORE_CNT', 'EB_ARGS', 'GPU_JOB_OPT']:
+                            for key in ['CORE_CNT', 'EB_ARGS', 'SLURM_ARGS']:
                                 if item.startswith(key + '='):
                                     _, value = item.split('=', 1)
                                     tmpl_dict[key.lower()] = '"%s"' % value
