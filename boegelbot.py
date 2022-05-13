@@ -77,6 +77,7 @@ def is_fluke(job_log_txt):
         r"failed: Connection timed out",  # for downloading stuff from SourceForge
         r"unable to resolve host address",  # DNS issues
         r"fetch-pack: unexpected disconnect",
+        r"Internal Server Error occurred while resolving",
     ]
     fluke = False
     for pattern in fluke_patterns:
@@ -524,8 +525,8 @@ def process_notifications(notifications, github, github_user, github_account, re
                     print("Comment includes '%s', so processing it..." % host_regex.pattern)
 
                     maintainers = ['akesandgren', 'bartoldeman', 'bedroge', 'boegel', 'branfosj', 'casparvl',
-                                   'lexming', 'Micket', 'migueldiascosta', 'ocaisa', 'SebastianAchilles', 'smoors',
-                                   'verdurin']
+                                   'jfgrimm', 'lexming', 'Micket', 'migueldiascosta', 'ocaisa', 'SebastianAchilles',
+                                   'smoors', 'verdurin']
                     contributors = ['robert-mijakovic']
                     allowed_accounts = maintainers + contributors
 
