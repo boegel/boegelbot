@@ -181,7 +181,7 @@ def fetch_travis_failed_builds(github_account, repository, owner, github_token):
                     pr_comment += "* %s - %s => %s\n" % (job.number, job.state, job_url)
 
                 pr_comment += "\n*bleep, bloop, I'm just a bot (boegelbot v%s)*" % VERSION
-                pr_comment += "Please talk to my owner `@%s` if you notice you me acting stupid)," % owner
+                pr_comment += "Please talk to my owner `@%s` if you notice me acting stupid)," % owner
                 pr_comment += "or submit a pull request to https://github.com/boegel/boegelbot fix the problem."
 
                 res.append((pr, pr_comment, check_msg))
@@ -365,7 +365,7 @@ def fetch_github_failed_workflows(github, github_account, repository, github_use
                 pr_comment += "```\n"
 
                 pr_comment += "\n*bleep, bloop, I'm just a bot (boegelbot v%s)*\n" % VERSION
-                pr_comment += "Please talk to my owner `@%s` if you notice you me acting stupid),\n" % owner
+                pr_comment += "Please talk to my owner `@%s` if you notice me acting stupid),\n" % owner
                 pr_comment += "or submit a pull request to https://github.com/boegel/boegelbot fix the problem."
 
                 res.append((pr_id, pr_comment, check_msg))
