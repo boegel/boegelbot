@@ -8,7 +8,7 @@
 set -e
 
 TOPDIR="/project"
-CONTAINER_BIND_PATHS="${TOPDIR}/$USER"
+CONTAINER_BIND_PATHS="${TOPDIR}/$USER:${TOPDIR}/maintainers"
 
 EB_PREFIX=${HOME}/easybuild
 export PYTHONPATH=${EB_PREFIX}/easybuild-framework:${EB_PREFIX}/easybuild-easyblocks:${EB_PREFIX}/easybuild-easyconfigs
