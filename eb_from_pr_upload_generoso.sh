@@ -8,7 +8,7 @@
 set -e
 
 TOPDIR="/project"
-CONTAINER_BIND_PATHS="${TOPDIR}/$USER:${TOPDIR}/maintainers"
+CONTAINER_BIND_PATHS="--bind ${TOPDIR}/$USER --bind ${TOPDIR}/maintainers"
 
 EB_PREFIX=${HOME}/easybuild
 export PYTHONPATH=${EB_PREFIX}/easybuild-framework:${EB_PREFIX}/easybuild-easyblocks:${EB_PREFIX}/easybuild-easyconfigs
@@ -55,5 +55,5 @@ else
     export EASYBUILD_PREFIX=${TOPDIR}/${USER}/container-$(basename ${EB_CONTAINER})/${CPU_ARCH}
     module use ${EASYBUILD_PREFIX}/modules/all
 
-    ${CONTAINER_EXEC_CMD} --bind ${CONTAINER_BIND_PATHS} ${EB_CONTAINER} bash -l -c "export PATH=$PATH:\$PATH; export PYTHONPATH=$PYTHONPATH:\$PYTHONPATH; module unuse $MODULEPATH; ${EB_CMD}"
+    ${CONTAINER_EXEC_CMD} ${CONTAINER_BIND_PATHS} ${EB_CONTAINER} bash -l -c "export PATH=$PATH:\$PATH; export PYTHONPATH=$PYTHONPATH:\$PYTHONPATH; module unuse $MODULEPATH; ${EB_CMD}"
 fi
