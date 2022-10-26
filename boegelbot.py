@@ -37,6 +37,9 @@ MODE_CHECK_GITHUB_ACTIONS = 'check_github_actions'
 MODE_CHECK_TRAVIS = 'check_travis'
 MODE_TEST_PR = 'test_pr'
 
+# see https://github.com/easybuilders/easybuild-containers
+CONTAINER_BASE_URL = 'docker://ghcr.io/easybuilders'
+
 
 def error(msg):
     """Print error message and exit."""
@@ -540,19 +543,27 @@ def process_notifications(notifications, github, github_user, github_account, re
 
                         reply_msg = "@%s: Request for testing this PR well received on %s\n" % (comment_by, hostname)
 
-                        tmpl_dict = {'pr': pr_id}
+                        tmpl_dict = {
+                            'container': '',  # no container used by default
+                            'core_cnt': core_cnt,  # use default number of cores (as specified via --core-cnt option)
+                            'eb_args': '',  # no arguments to 'eb' command by default
+                            'pr': pr_id,
+                        }
 
                         # check whether custom arguments for 'eb' or submit command are specified
-                        tmpl_dict.update({
-                            'core_cnt': core_cnt,
-                            'eb_args': '',
-                        })
                         for item in shlex.split(msg):
                             for key in ['CORE_CNT', 'EB_ARGS']:
                                 if item.startswith(key + '='):
                                     _, value = item.split('=', 1)
                                     tmpl_dict[key.lower()] = '"%s"' % value
                                     break
+
+                        # check whether testing in a container image is requested
+                        in_container_pattern = "[Pp]lease test @.*%s in container (?P<container>.*)" % host
+                        in_container_regex = re.compile(in_container_pattern, re.M)
+                        res = in_container_regex.search(msg)
+                        if res:
+                            tmpl_dict['container'] = CONTAINER_BASE_URL + '/' + res.group('container').strip()
 
                         # run pr test command, check exit code and capture output
                         cmd = pr_test_cmd % tmpl_dict
