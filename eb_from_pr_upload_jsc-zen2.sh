@@ -15,7 +15,7 @@ export PYTHONPATH=$EB_PREFIX/easybuild-framework:$EB_PREFIX/easybuild-easyblocks
 # $HOME/.local/bin is added to $PATH for Python packages like archspec installed with 'pip install --user'
 export PATH=$EB_PREFIX/easybuild-framework:$HOME/.local/bin:$PATH
 
-export CPU_ARCH=haswell
+export CPU_ARCH=zen2
 export EASYBUILD_PREFIX=$TOPDIR/$USER/Rocky8/$CPU_ARCH
 export EASYBUILD_BUILDPATH=/tmp/$USER
 export EASYBUILD_SOURCEPATH=$TOPDIR/$USER/sources
