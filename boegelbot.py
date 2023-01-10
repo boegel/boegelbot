@@ -299,6 +299,8 @@ def fetch_github_failed_workflows(github, github_account, repository, github_use
                 except HTTPError as err:
                     status = err.code
 
+                log_txt = log_txt.decode(errors='ignore')
+
                 if status == 200:
                     print("Downloaded log for job %s" % job_id)
                 else:
@@ -329,11 +331,14 @@ def fetch_github_failed_workflows(github, github_account, repository, github_use
                                                       user_agent='eb-pr-check')
                             print("Fluke found, restarting this workflow using @%s's GitHub account..." % owner)
                             repo_api = github_owner.repos[github_account][repository]
-                            status, jobs_data = repo_api.actions.runs[run_id].rerun.post()
+                            # note: this must be one line
+                            # have to use __getattr__ because rerun-failed-jobs includes dashes
+                            # cfr. https://docs.github.com/en/rest/actions/workflow-runs?apiVersion=2022-11-28#re-run-a-workflow
+                            status, _  = repo_api.__getattr__('actions/runs/%s/rerun-failed-jobs' % run_id).post()
                             if status == 201:
-                                print("Workflow %s restarted" % entry['html_url'])
+                                print("Failed jobs for workflow %s restarted" % entry['html_url'])
                             else:
-                                print("Failed to restart workflow %s: status %s" % (entry['html_url'], status))
+                                print("Failed to restart failed jobs for workflow %s: status %s" % (entry['html_url'], status))
                         else:
                             warning("Fluke found but can't restart workflow, no token found for @%s" % owner)
 
