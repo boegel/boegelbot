@@ -527,7 +527,7 @@ def process_notifications(notifications, github, github_user, github_account, re
                     maintainers = ['akesandgren', 'bartoldeman', 'bedroge', 'boegel', 'branfosj', 'casparvl',
                                    'jfgrimm', 'lexming', 'Micket', 'migueldiascosta', 'ocaisa', 'SebastianAchilles',
                                    'smoors', 'verdurin']
-                    contributors = ['robert-mijakovic']
+                    contributors = ['robert-mijakovic', 'deniskristak', 'ItIsI-Orient', 'PetrKralCZ']
                     allowed_accounts = maintainers + contributors
 
                     please_regex = re.compile(r'[Pp]lease test', re.M)
