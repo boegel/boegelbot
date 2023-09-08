@@ -37,7 +37,7 @@ export EASYBUILD_SET_GID_BIT=1
 export EASYBUILD_UMASK='022'
 
 repo_pr_arg='--from-pr'
-if [ "EB_REPO" == "easybuild-easyblocks" ]; then
+if [ $EB_REPO == "easybuild-easyblocks" ]; then
     repo_pr_arg='--include-easyblocks-from-pr'
 fi
 
