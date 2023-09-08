@@ -554,6 +554,7 @@ def process_notifications(notifications, github, github_user, github_account, re
                             'core_cnt': core_cnt,  # use default number of cores (as specified via --core-cnt option)
                             'eb_args': '',  # no arguments to 'eb' command by default
                             'pr': pr_id,
+                            'repository': repository,
                         }
 
                         # check whether custom arguments for 'eb' or submit command are specified
