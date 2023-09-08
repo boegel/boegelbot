@@ -36,7 +36,7 @@ export INTEL_LICENSE_FILE=${TOPDIR}/maintainers/licenses/intel.lic
 module use ${EASYBUILD_PREFIX}/modules/all
 
 repo_pr_arg='--from-pr'
-if [ "EB_REPO" == "easyblocks" ]; then
+if [ "EB_REPO" == "easybuild-easyblocks" ]; then
     repo_pr_arg='--include-easyblocks-from-pr'
 fi
 
