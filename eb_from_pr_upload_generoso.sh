@@ -35,7 +35,12 @@ export INTEL_LICENSE_FILE=${TOPDIR}/maintainers/licenses/intel.lic
 
 module use ${EASYBUILD_PREFIX}/modules/all
 
-EB_CMD="eb --from-pr ${EB_PR} --debug --rebuild --robot --upload-test-report --download-timeout=1000"
+repo_pr_arg='--from-pr'
+if [ "EB_REPO" == "easyblocks" ]; then
+    repo_pr_arg='--include-easyblocks-from-pr'
+fi
+
+EB_CMD="eb ${repo_pr_arg} ${EB_PR} --debug --rebuild --robot --upload-test-report --download-timeout=1000"
 if [ ! -z "${EB_ARGS}" ]; then
     EB_CMD="${EB_CMD} ${EB_ARGS}"
 fi
