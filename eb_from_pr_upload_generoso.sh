@@ -34,6 +34,9 @@ export EASYBUILD_CUDA_COMPUTE_CAPABILITIES=7.0
 # see https://github.com/easybuilders/easybuild-easyconfigs/issues/18925
 export PSM3_DEVICES='self,shm'
 
+# see https://github.com/easybuilders/easybuild-easyconfigs/pull/19314#issuecomment-1825665377
+export I_MPI_FABRICS=shm
+
 export INTEL_LICENSE_FILE=${TOPDIR}/maintainers/licenses/intel.lic
 
 module use ${EASYBUILD_PREFIX}/modules/all
