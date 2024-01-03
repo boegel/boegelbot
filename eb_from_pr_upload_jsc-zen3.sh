@@ -3,6 +3,7 @@
 #SBATCH --ntasks=4
 #SBATCH --mem-per-cpu=4000M
 #SBATCH --time 100:0:0
+#SBATCH --partition=jsczen3c
 #SBATCH --output /project/def-maintainers/boegelbot/slurmjobs/slurm-%j.out
 #SBATCH --get-user-env
 
