@@ -13,7 +13,12 @@ cd `dirname $(realpath $0)`
 ./easybuild_develop.sh
 
 # set up environment
-EB_PREFIX=$HOME/easybuild source init_env_easybuild_develop.sh
+if [ "$EB_BRANCH" = "develop" ]; then
+    EB_PREFIX=$HOME/easybuild
+else
+    EB_PREFIX=$HOME/easybuild/$EB_BRANCH
+fi
+source init_env_easybuild_develop.sh
 
 # check notifications for new PRs to test
 $TEST_PRS_SCRIPT
