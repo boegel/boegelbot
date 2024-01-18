@@ -52,6 +52,10 @@ if [ $EB_REPO == "easybuild-easyblocks" ]; then
     repo_pr_arg='--include-easyblocks-from-pr'
 fi
 
+if [[ $EB_PREFIX == *"5.0.x"* ]]; then
+  export EASYBUILD_FAIL_ON_MOD_FILES_GCCCORE=1
+fi
+
 EB_CMD="eb ${repo_pr_arg} ${EB_PR} --debug --rebuild --robot --upload-test-report --download-timeout=1000"
 if [ ! -z "${EB_ARGS}" ]; then
     EB_CMD="${EB_CMD} ${EB_ARGS}"
