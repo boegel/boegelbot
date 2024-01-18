@@ -12,7 +12,11 @@ set -e
 TOPDIR="/project/def-maintainers"
 CONTAINER_BIND_PATHS="--bind ${TOPDIR}/$USER --bind ${TOPDIR}/maintainers"
 
-EB_PREFIX=${HOME}/easybuild
+if [ "$EB_BRANCH" = "develop" ]; then
+    EB_PREFIX=$HOME/easybuild
+else
+    EB_PREFIX=$HOME/easybuild/$EB_BRANCH
+fi
 export PYTHONPATH=${EB_PREFIX}/easybuild-framework:${EB_PREFIX}/easybuild-easyblocks:${EB_PREFIX}/easybuild-easyconfigs
 # $HOME/.local/bin is added to $PATH for Python packages like archspec installed with 'pip install --user'
 export PATH=${EB_PREFIX}/easybuild-framework:${HOME}/.local/bin:${PATH}
