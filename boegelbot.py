@@ -528,7 +528,7 @@ def process_notifications(notifications, github, github_user, github_account, re
                                    'jfgrimm', 'lexming', 'Micket', 'migueldiascosta', 'ocaisa', 'SebastianAchilles',
                                    'smoors', 'verdurin']
                     contributors = ['robert-mijakovic', 'deniskristak', 'ItIsI-Orient', 'PetrKralCZ', 'sassy-crick',
-                                    'laraPPr']
+                                    'laraPPr', 'pavelToman']
                     allowed_accounts = maintainers + contributors
 
                     please_regex = re.compile(r'[Pp]lease test', re.M)
@@ -553,13 +553,14 @@ def process_notifications(notifications, github, github_user, github_account, re
                             'container': '',  # no container used by default
                             'core_cnt': core_cnt,  # use default number of cores (as specified via --core-cnt option)
                             'eb_args': '',  # no arguments to 'eb' command by default
+                            'eb_branch': 'develop',  # use develop branch by default
                             'pr': pr_id,
                             'repository': repository,
                         }
 
                         # check whether custom arguments for 'eb' or submit command are specified
                         for item in shlex.split(msg):
-                            for key in ['CORE_CNT', 'EB_ARGS']:
+                            for key in ['CORE_CNT', 'EB_ARGS', 'EB_BRANCH']:
                                 if item.startswith(key + '='):
                                     _, value = item.split('=', 1)
                                     tmpl_dict[key.lower()] = '"%s"' % value
