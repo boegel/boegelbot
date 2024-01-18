@@ -52,7 +52,7 @@ if [ $EB_REPO == "easybuild-easyblocks" ]; then
     repo_pr_arg='--include-easyblocks-from-pr'
 fi
 
-if [[ $EB_PREFIX == *"5.0.x"* ]]; then
+if [[ $EB_BRANCH == *"5.0.x"* ]]; then
   export EASYBUILD_FAIL_ON_MOD_FILES_GCCCORE=1
 fi
 
