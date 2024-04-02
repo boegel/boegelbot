@@ -294,12 +294,12 @@ def fetch_github_failed_workflows(github, github_account, repository, github_use
                 if job_id is None:
                     error("ID of failing job not found for workflow %s" % entry['html_url'])
 
+                status = None
                 try:
                     status, log_txt = github.repos[github_account][repository].actions.jobs[job_id].logs.get()
+                    log_txt = log_txt.decode(errors='ignore')
                 except HTTPError as err:
                     status = err.code
-
-                log_txt = log_txt.decode(errors='ignore')
 
                 if status == 200:
                     print("Downloaded log for job %s" % job_id)
