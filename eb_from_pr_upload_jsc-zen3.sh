@@ -1,23 +1,31 @@
 #!/bin/bash -l
 #SBATCH --nodes 1
 #SBATCH --ntasks=4
+#SBATCH --mem-per-cpu=4000M
 #SBATCH --time 100:0:0
-#SBATCH --output /project/boegelbot/slurmjobs/slurm-%j.out
+#SBATCH --partition=jsczen3c
+#SBATCH --output /project/def-maintainers/boegelbot/slurmjobs/slurm-%j.out
 #SBATCH --get-user-env
 
 set -e
 
-TOPDIR="/project"
+TOPDIR="/project/def-maintainers"
 CONTAINER_BIND_PATHS="--bind ${TOPDIR}/$USER --bind ${TOPDIR}/maintainers"
 
-EB_PREFIX=${HOME}/easybuild
+if [ "$EB_BRANCH" = "develop" ]; then
+    EB_PREFIX=$HOME/easybuild
+else
+    EB_PREFIX=$HOME/easybuild/$EB_BRANCH
+fi
 export PYTHONPATH=${EB_PREFIX}/easybuild-framework:${EB_PREFIX}/easybuild-easyblocks:${EB_PREFIX}/easybuild-easyconfigs
 # $HOME/.local/bin is added to $PATH for Python packages like archspec installed with 'pip install --user'
 export PATH=${EB_PREFIX}/easybuild-framework:${HOME}/.local/bin:${PATH}
 
-# hardcode to haswell for now, workernodes are actually a mix of haswell/broadwell (but seems to work fine)
-export CPU_ARCH=haswell
-export EASYBUILD_PREFIX=${TOPDIR}/${USER}/Rocky8/${CPU_ARCH}
+# use archspec to determine CPU architecture
+export CPU_ARCH=$(archspec cpu)
+export OS_DISTRO=$(source /etc/os-release; echo $ID)
+export OS_VERSION=$(source /etc/os-release; echo $VERSION_ID | awk -F '.' '{print $1}')
+export EASYBUILD_PREFIX=${TOPDIR}/${USER}/${OS_DISTRO}${OS_VERSION}/${CPU_ARCH}
 export EASYBUILD_BUILDPATH=/tmp/${USER}
 export EASYBUILD_SOURCEPATH=${TOPDIR}/${USER}/sources:${TOPDIR}/maintainers/sources
 
@@ -29,21 +37,23 @@ export EASYBUILD_ACCEPT_EULA_FOR='.*'
 
 export EASYBUILD_HOOKS=${HOME}/boegelbot/eb_hooks.py
 
-export EASYBUILD_CUDA_COMPUTE_CAPABILITIES=7.0
+export EASYBUILD_OPTARCH='Intel:march=core-avx2'
 
-# see https://github.com/easybuilders/easybuild-easyconfigs/issues/18925
-export PSM3_DEVICES='self,shm'
+export EASYBUILD_CUDA_COMPUTE_CAPABILITIES=8.0
 
-# see https://github.com/easybuilders/easybuild-easyconfigs/pull/19314#issuecomment-1825665377
-export I_MPI_FABRICS=shm
+export EASYBUILD_SET_GID_BIT=1
 
-export INTEL_LICENSE_FILE=${TOPDIR}/maintainers/licenses/intel.lic
+export EASYBUILD_UMASK='022'
 
 module use ${EASYBUILD_PREFIX}/modules/all
 
 repo_pr_arg='--from-pr'
 if [ $EB_REPO == "easybuild-easyblocks" ]; then
     repo_pr_arg='--include-easyblocks-from-pr'
+fi
+
+if [[ $EB_BRANCH == *"5.0.x"* ]]; then
+  export EASYBUILD_FAIL_ON_MOD_FILES_GCCCORE=1
 fi
 
 EB_CMD="eb ${repo_pr_arg} ${EB_PR} --debug --rebuild --robot --upload-test-report --download-timeout=1000"

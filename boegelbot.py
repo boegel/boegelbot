@@ -37,6 +37,9 @@ MODE_CHECK_GITHUB_ACTIONS = 'check_github_actions'
 MODE_CHECK_TRAVIS = 'check_travis'
 MODE_TEST_PR = 'test_pr'
 
+# see https://github.com/easybuilders/easybuild-containers
+CONTAINER_BASE_URL = 'docker://ghcr.io/easybuilders'
+
 
 def error(msg):
     """Print error message and exit."""
@@ -181,7 +184,7 @@ def fetch_travis_failed_builds(github_account, repository, owner, github_token):
                     pr_comment += "* %s - %s => %s\n" % (job.number, job.state, job_url)
 
                 pr_comment += "\n*bleep, bloop, I'm just a bot (boegelbot v%s)*" % VERSION
-                pr_comment += "Please talk to my owner `@%s` if you notice you me acting stupid)," % owner
+                pr_comment += "Please talk to my owner `@%s` if you notice me acting stupid)," % owner
                 pr_comment += "or submit a pull request to https://github.com/boegel/boegelbot fix the problem."
 
                 res.append((pr, pr_comment, check_msg))
@@ -291,8 +294,10 @@ def fetch_github_failed_workflows(github, github_account, repository, github_use
                 if job_id is None:
                     error("ID of failing job not found for workflow %s" % entry['html_url'])
 
+                status = None
                 try:
                     status, log_txt = github.repos[github_account][repository].actions.jobs[job_id].logs.get()
+                    log_txt = log_txt.decode(errors='ignore')
                 except HTTPError as err:
                     status = err.code
 
@@ -326,11 +331,14 @@ def fetch_github_failed_workflows(github, github_account, repository, github_use
                                                       user_agent='eb-pr-check')
                             print("Fluke found, restarting this workflow using @%s's GitHub account..." % owner)
                             repo_api = github_owner.repos[github_account][repository]
-                            status, jobs_data = repo_api.actions.runs[run_id].rerun.post()
+                            # note: this must be one line
+                            # have to use __getattr__ because rerun-failed-jobs includes dashes
+                            # cfr. https://docs.github.com/en/rest/actions/workflow-runs?apiVersion=2022-11-28#re-run-a-workflow
+                            status, _  = repo_api.__getattr__('actions/runs/%s/rerun-failed-jobs' % run_id).post()
                             if status == 201:
-                                print("Workflow %s restarted" % entry['html_url'])
+                                print("Failed jobs for workflow %s restarted" % entry['html_url'])
                             else:
-                                print("Failed to restart workflow %s: status %s" % (entry['html_url'], status))
+                                print("Failed to restart failed jobs for workflow %s: status %s" % (entry['html_url'], status))
                         else:
                             warning("Fluke found but can't restart workflow, no token found for @%s" % owner)
 
@@ -365,7 +373,7 @@ def fetch_github_failed_workflows(github, github_account, repository, github_use
                 pr_comment += "```\n"
 
                 pr_comment += "\n*bleep, bloop, I'm just a bot (boegelbot v%s)*\n" % VERSION
-                pr_comment += "Please talk to my owner `@%s` if you notice you me acting stupid),\n" % owner
+                pr_comment += "Please talk to my owner `@%s` if you notice me acting stupid),\n" % owner
                 pr_comment += "or submit a pull request to https://github.com/boegel/boegelbot fix the problem."
 
                 res.append((pr_id, pr_comment, check_msg))
@@ -527,7 +535,8 @@ def process_notifications(notifications, github, github_user, github_account, re
                     maintainers = ['akesandgren', 'bartoldeman', 'bedroge', 'boegel', 'branfosj', 'casparvl',
                                    'jfgrimm', 'lexming', 'Micket', 'migueldiascosta', 'ocaisa', 'SebastianAchilles',
                                    'smoors', 'verdurin']
-                    contributors = ['robert-mijakovic']
+                    contributors = ['robert-mijakovic', 'deniskristak', 'ItIsI-Orient', 'PetrKralCZ', 'sassy-crick',
+                                    'laraPPr', 'pavelToman']
                     allowed_accounts = maintainers + contributors
 
                     please_regex = re.compile(r'[Pp]lease test', re.M)
@@ -548,7 +557,14 @@ def process_notifications(notifications, github, github_user, github_account, re
 
                         reply_msg = "@%s: Request for testing this PR well received on %s\n" % (comment_by, hostname)
 
-                        tmpl_dict = {'pr': pr_id}
+                        tmpl_dict = {
+                            'container': '',  # no container used by default
+                            'core_cnt': core_cnt,  # use default number of cores (as specified via --core-cnt option)
+                            'eb_args': '',  # no arguments to 'eb' command by default
+                            'eb_branch': 'develop',  # use develop branch by default
+                            'pr': pr_id,
+                            'repository': repository,
+                        }
 
                         # check whether custom arguments for 'eb' or submit command are specified
                         tmpl_dict.update({
@@ -564,11 +580,18 @@ def process_notifications(notifications, github, github_user, github_account, re
                           })
 
                         for item in shlex.split(msg):
-                            for key in ['CORE_CNT', 'EB_ARGS', 'SLURM_ARGS']:
+                            for key in ['CORE_CNT', 'EB_ARGS', 'EB_BRANCH', 'SLURM_ARGS']:
                                 if item.startswith(key + '='):
                                     _, value = item.split('=', 1)
                                     tmpl_dict[key.lower()] = '"%s"' % value
                                     break
+
+                        # check whether testing in a container image is requested
+                        in_container_pattern = "[Pp]lease test @.*%s in container (?P<container>.*)" % host
+                        in_container_regex = re.compile(in_container_pattern, re.M)
+                        res = in_container_regex.search(msg)
+                        if res:
+                            tmpl_dict['container'] = CONTAINER_BASE_URL + '/' + res.group('container').strip()
 
                         # run pr test command, check exit code and capture output
                         cmd = pr_test_cmd % tmpl_dict
