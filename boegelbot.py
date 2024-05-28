@@ -466,7 +466,7 @@ def check_notifications(github, github_user, github_account, repository):
     return retained
 
 
-def process_notifications(notifications, github, github_user, github_account, repository, host, pr_test_cmd, core_cnt):
+def process_notifications(notifications, github, github_user, github_account, repository, host, gpuhost, pr_test_cmd, core_cnt, gpu_job_opt):
     """Process provided notifications."""
 
     res = []
@@ -509,7 +509,15 @@ def process_notifications(notifications, github, github_user, github_account, re
             msg += "(timestamp: %s)" % notification['timestamp']
             print(msg)
             continue
+
+        # Make sure that also only --host can be specified without --gpuhost and vice versa
+        if not host:
+          host = 'NO_HOST_PATTERN_PROVIDED'
+        if not gpuhost:
+          gpuhost = 'NO_GPUHOST_PATTERN_PROVIDED'
+
         host_regex = re.compile(r'@.*%s' % host, re.M)
+        gpuhost_regex = re.compile(r'@.*%s' % gpuhost, re.M)
 
         mention_found = False
         for comment_data in comments_data[::-1]:
@@ -520,8 +528,8 @@ def process_notifications(notifications, github, github_user, github_account, re
 
                 msg = mention_regex.sub(' ', comment_txt)
 
-                # require that @<host> is included in comment before taking any action
-                if host_regex.search(msg):
+                # require that @<host> or @<gpuhost> is included in comment before taking any action
+                if host_regex.search(msg) or gpuhost_regex.search(msg):
                     print("Comment includes '%s', so processing it..." % host_regex.pattern)
 
                     maintainers = ['akesandgren', 'bartoldeman', 'bedroge', 'boegel', 'branfosj', 'casparvl',
@@ -556,11 +564,18 @@ def process_notifications(notifications, github, github_user, github_account, re
                             'eb_branch': 'develop',  # use develop branch by default
                             'pr': pr_id,
                             'repository': repository,
+                            'slurm_args': '',
                         }
+
+                        # if running on gpuhost add gpu_job_opt to tmpl_dict
+                        if gpuhost_regex.search(msg):
+                            tmpl_dict.update({
+                                'slurm_args': gpu_job_opt,
+                            })
 
                         # check whether custom arguments for 'eb' or submit command are specified
                         for item in shlex.split(msg):
-                            for key in ['CORE_CNT', 'EB_ARGS', 'EB_BRANCH']:
+                            for key in ['CORE_CNT', 'EB_ARGS', 'EB_BRANCH', 'SLURM_ARGS']:
                                 if item.startswith(key + '='):
                                     _, value = item.split('=', 1)
                                     tmpl_dict[key.lower()] = '"%s"' % value
@@ -636,8 +651,10 @@ def main():
         'owner': ("Owner of the bot account that is used", None, 'store', 'boegel'),
         'repository': ("Repository to use", None, 'store', 'easybuild-easyconfigs', 'r'),
         'host': ("Label for current host (used to filter comments asking to test a PR)", None, 'store', ''),
+        'gpuhost': ("Label for current gpuhost (used to filter comments asking to test a PR)", None, 'store', ''),
         'pr-test-cmd': ("Command to use for testing easyconfig pull requests (should include '%(pr)s' template value)",
                         None, 'store', ''),
+        'gpu-job-opt': ("Additional job option to run an a GPU node", None, 'store', None),
     }
 
     go = simple_option(go_dict=opts)
@@ -650,8 +667,10 @@ def main():
     owner = go.options.owner
     repository = go.options.repository
     host = go.options.host
+    gpuhost = go.options.gpuhost
     pr_test_cmd = go.options.pr_test_cmd
     core_cnt = go.options.core_cnt
+    gpu_job_opt = go.options.gpu_job_opt
 
     github_token = fetch_github_token(github_user)
 
@@ -686,8 +705,8 @@ def main():
             error("--core-cnt must be used to specify the default number of cores to request per submitted job!")
 
         notifications = check_notifications(github, github_user, github_account, repository)
-        process_notifications(notifications, github, github_user, github_account, repository, host, pr_test_cmd,
-                              core_cnt)
+        process_notifications(notifications, github, github_user, github_account, repository, host, gpuhost, pr_test_cmd,
+                              core_cnt, gpu_job_opt)
     else:
         error("Unknown mode: %s" % mode)
 
