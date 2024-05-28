@@ -564,21 +564,16 @@ def process_notifications(notifications, github, github_user, github_account, re
                             'eb_branch': 'develop',  # use develop branch by default
                             'pr': pr_id,
                             'repository': repository,
-                        }
-
-                        # check whether custom arguments for 'eb' or submit command are specified
-                        tmpl_dict.update({
-                            'core_cnt': core_cnt,
-                            'eb_args': '',
                             'slurm_args': '',
-                        })
+                        }
 
                         # if running on gpuhost add gpu_job_opt to tmpl_dict
                         if gpuhost_regex.search(msg):
-                          tmpl_dict.update({
-                              'slurm_args': gpu_job_opt,
-                          })
+                            tmpl_dict.update({
+                                'slurm_args': gpu_job_opt,
+                            })
 
+                        # check whether custom arguments for 'eb' or submit command are specified
                         for item in shlex.split(msg):
                             for key in ['CORE_CNT', 'EB_ARGS', 'EB_BRANCH', 'SLURM_ARGS']:
                                 if item.startswith(key + '='):
