@@ -32,7 +32,7 @@ export EASYBUILD_HOOKS=${HOME}/boegelbot/eb_hooks.py
 export EASYBUILD_CUDA_COMPUTE_CAPABILITIES=7.0
 
 # see https://github.com/easybuilders/easybuild-easyconfigs/issues/18925
-export PSM3_DEVICES='self,shm'
+export FI_PROVIDER="^psm3"
 
 # see https://github.com/easybuilders/easybuild-easyconfigs/pull/19314#issuecomment-1825665377
 export I_MPI_FABRICS=shm
