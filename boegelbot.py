@@ -532,9 +532,9 @@ def process_notifications(notifications, github, github_user, github_account, re
                 if host_regex.search(msg) or gpuhost_regex.search(msg):
                     print("Comment includes '%s', so processing it..." % host_regex.pattern)
 
-                    maintainers = ['akesandgren', 'bartoldeman', 'bedroge', 'boegel', 'branfosj', 'casparvl',
+                    maintainers = ['akesandgren', 'bartoldeman', 'bedroge', 'boegel', 'branfosj', 'casparvl', 'Crivella',
                                    'jfgrimm', 'lexming', 'Micket', 'migueldiascosta', 'ocaisa', 'SebastianAchilles',
-                                   'smoors', 'verdurin']
+                                   'smoors', 'verdurin', 'WilleBell']
                     contributors = ['robert-mijakovic', 'deniskristak', 'ItIsI-Orient', 'PetrKralCZ', 'sassy-crick',
                                     'laraPPr', 'pavelToman', 'Louwrensth', 'Thyre']
                     allowed_accounts = maintainers + contributors
