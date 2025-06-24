@@ -487,7 +487,7 @@ def process_notifications(notifications, github, github_user, github_account, re
 
         # determine comment that triggered the notification
         trigger_comment_id = None
-        mention_regex = re.compile(r'\s*@%s:?\s*' % github_user, re.M)
+        mention_regex = re.compile(r'^\s*@%s:?\s*' % github_user, re.M)
         for comment_data in comments_data[::-1]:
             comment_id, comment_txt = comment_data['id'], comment_data['body']
             if mention_regex.search(comment_txt):
