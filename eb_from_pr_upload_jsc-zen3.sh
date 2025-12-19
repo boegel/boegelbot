@@ -1,7 +1,7 @@
 #!/bin/bash -l
 #SBATCH --nodes 1
 #SBATCH --ntasks=4
-#SBATCH --mem-per-cpu=4000M
+#SBATCH --mem-per-cpu=3800M
 #SBATCH --time 100:0:0
 #SBATCH --partition=jsczen3c
 #SBATCH --output /project/def-maintainers/boegelbot/slurmjobs/slurm-%j.out
