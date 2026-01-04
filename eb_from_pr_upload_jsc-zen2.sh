@@ -17,7 +17,7 @@ export PYTHONPATH=$EB_PREFIX/easybuild-framework:$EB_PREFIX/easybuild-easyblocks
 export PATH=$EB_PREFIX/easybuild-framework:$HOME/.local/bin:$PATH
 
 export EASYBUILD_PREFIX=$TOPDIR/$USER/Rocky8/zen2
-export EASYBUILD_BUILDPATH=/tmp/$USER
+export EASYBUILD_BUILDPATH=/tmp/${USER}-${EB_PR}
 export EASYBUILD_SOURCEPATH=$TOPDIR/$USER/sources
 
 export EASYBUILD_GITHUB_USER=boegelbot

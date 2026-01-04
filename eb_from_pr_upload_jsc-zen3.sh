@@ -26,7 +26,7 @@ export CPU_ARCH=$(archspec cpu)
 export OS_DISTRO=$(source /etc/os-release; echo $ID)
 export OS_VERSION=$(source /etc/os-release; echo $VERSION_ID | awk -F '.' '{print $1}')
 export EASYBUILD_PREFIX=${TOPDIR}/${USER}/${OS_DISTRO}${OS_VERSION}/${CPU_ARCH}
-export EASYBUILD_BUILDPATH=/tmp/${USER}
+export EASYBUILD_BUILDPATH=/tmp/${USER}-${EB_PR}
 export EASYBUILD_SOURCEPATH=${TOPDIR}/${USER}/sources:${TOPDIR}/maintainers/sources
 
 export EASYBUILD_GITHUB_USER=boegelbot
