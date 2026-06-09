@@ -578,7 +578,7 @@ def process_notifications(notifications, github, github_user, github_account, re
                             for key in ['CORE_CNT', 'EB_ARGS', 'EB_BRANCH', 'SLURM_ARGS']:
                                 if item.startswith(key + '='):
                                     _, value = item.split('=', 1)
-                                    tmpl_dict[key.lower()] = '"%s"' % value
+                                    tmpl_dict[key.lower()] = '"%s"' % value.lstrip('"').rstrip('"')
                                     break
 
                         # check whether testing in a container image is requested
