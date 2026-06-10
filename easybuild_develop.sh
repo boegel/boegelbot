@@ -21,6 +21,8 @@ if [ ! -f $INIT_ENV ]; then
     exit 1
 fi
 
+ORIG_WD=$PWD
+
 for eb_repo in easybuild-framework easybuild-easyblocks easybuild-easyconfigs; do
 
     cd $EB_PREFIX
@@ -57,3 +59,5 @@ done
 source $INIT_ENV
 
 eb --version
+
+cd $ORIG_WD
