@@ -18,7 +18,7 @@ export PATH=${EB_PREFIX}/easybuild-framework:${HOME}/.local/bin:${PATH}
 # hardcode to haswell for now, workernodes are actually a mix of haswell/broadwell (but seems to work fine)
 export CPU_ARCH=haswell
 export EASYBUILD_PREFIX=${TOPDIR}/${USER}/Rocky8/${CPU_ARCH}
-export EASYBUILD_BUILDPATH=/tmp/${USER}
+export EASYBUILD_BUILDPATH=/tmp/${USER}-${EB_PR}
 export EASYBUILD_SOURCEPATH=${TOPDIR}/${USER}/sources:${TOPDIR}/maintainers/sources
 
 export EASYBUILD_GITHUB_USER=boegelbot
