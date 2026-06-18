@@ -494,7 +494,7 @@ def process_notifications(notifications, github, github_user, github_account, re
                 trigger_comment_id = comment_id
                 break
 
-        check_str = "notification for comment with ID %s processed" % trigger_comment_id
+        check_str = "notification for comment with ID %s processed on %s" % (trigger_comment_id, host)
 
         processed = False
         for comment_data in comments_data[::-1]:
